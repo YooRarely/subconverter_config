@@ -13,7 +13,7 @@ app = Flask(__name__)
 # 1. 订阅后端地址
 SUB_BACKEND_URL = os.getenv(
     "SUB_BACKEND", 
-    "https://yoorarely-subconverter.zeabur.app/sub"
+    "http://subconverter.zeabur.internal:25500/sub"
 )
 
 # 2. 远程配置文件地址
