@@ -7,7 +7,7 @@ add_emoji = true
 remove_old_emoji = true
 
 [[emoji]]
-import = "target/emoji.toml"
+import = "target/config/emoji.toml"
 
 
 # [[custom_groups]]
@@ -16,7 +16,7 @@ import = "target/emoji.toml"
 # rule = ["[]DIRECT", ".*"]
 
 [[custom_groups]]
-import = "target/country.toml"
+import = "target/config/country.toml"
 
 [[rulesets]]
 group = "🚀 节点选择"

@@ -6,7 +6,7 @@ from pruner import main_prune
 app = Flask(__name__)
 
 # --- 配置 ---
-GITHUB_CONFIG_URL = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/remote_config.toml"
+GITHUB_CONFIG_URL = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml"
 SUB_BACKEND_URL = "http://subconverter.zeabur.internal/sub"
 
 @app.route('/<path:airport_url>')
