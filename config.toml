@@ -29,22 +29,22 @@ ruleset = "target/rules/China.list"
 # 1. 拦截广告（可选，极简派如果不在意广告可删此条）
 [[rulesets]]
 group = "REJECT"
-ruleset = "rules/NobyDa/Surge/AdRule.list"
+ruleset = "target/rules/default/AdRule.list"
 
 # 2. 局域网与修正（确保本地连接不走代理）
 [[rulesets]]
 group = "DIRECT"
-ruleset = "rules/LocalAreaNetwork.list"
+ruleset = "target/rules/default/LocalAreaNetwork.list"
 
 # 3. 核心分流：所有被墙的国外服务（Google/Twitter/GitHub等）
 [[rulesets]]
 group = "🚀 节点选择"
-ruleset = "rules/DivineEngine/Surge/Ruleset/Global.list"
+ruleset = "target/rules/default/Global.list"
 
 # 4. 国内直连（基于域名和地理位置 IP）
 [[rulesets]]
 group = "DIRECT"
-ruleset = "rules/DivineEngine/Surge/Ruleset/China.list"
+ruleset = "target/rules/default/China.list"
 
 [[rulesets]]
 group = "DIRECT"
