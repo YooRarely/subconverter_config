@@ -1,4 +1,5 @@
 from flask import Flask, Response, request
+import os
 import requests
 import yaml
 from pruner import main_prune
@@ -6,8 +7,18 @@ from pruner import main_prune
 app = Flask(__name__)
 
 # --- 配置 ---
-GITHUB_CONFIG_URL = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml"
-SUB_BACKEND_URL = "http://subconverter.zeabur.internal/sub"
+
+# 1. 订阅后端地址（记得加上 :25500 端口）
+SUB_BACKEND_URL = os.getenv(
+    "SUB_BACKEND", 
+    "http://subconverter.zeabur.internal:25500/sub"
+)
+
+# 2. 远程配置文件地址
+GITHUB_CONFIG_URL = os.getenv(
+    "GITHUB_CONFIG_URL", 
+    "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml"
+)
 
 @app.route('/<path:airport_url>')
 def smart_proxy(airport_url):
