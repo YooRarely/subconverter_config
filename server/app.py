@@ -1,4 +1,6 @@
 from flask import Flask, Response, request
+
+from urllib.parse import quote_plus  # 必须加上这一行
 import os
 import requests
 import yaml
@@ -22,48 +24,38 @@ GITHUB_CONFIG_URL = os.getenv(
 
 @app.route('/<path:airport_url>')
 def smart_proxy(airport_url):
-    # --- 核心修正开始 ---
-    # 之前报错是因为手动拼接 request.query_string 导致了二次编码（Double Encoding）
-    # 直接使用 request.url 获取完整链接并剥离当前 Host，以保留最原始的机场参数
-    full_url = request.url.split(request.host_url)[-1]
-    # --- 核心修正结束 ---
+    # 1. 拿到机场链接并拼接参数
+    full_airport_url = airport_url
+    if request.query_string:
+        full_airport_url += '?' + request.query_string.decode('utf-8')
+    
+    # 2. 【核心】强行编码！把 https:// 变成 https%3A%2F%2F
+    # 这是 Subconverter 要求的标准格式，不这么写它永远报 400
+    safe_airport_url = quote_plus(full_airport_url)
 
-    # 2. 【复原】直接复制 Clash 发给 Python 的所有 Header
+    # 3. 拼接
+    final_url = (
+        f"{SUB_BACKEND_URL}?"
+        f"target=clash&"
+        f"url={safe_airport_url}&"
+        f"config={GITHUB_CONFIG_URL}&"
+        f"emoji=true&list=false&udp=true"
+    )
+
     forward_headers = dict(request.headers)
     forward_headers.pop('Host', None)
 
-    params = {
-        "target": "clash",
-        "url": full_url,
-        "config": GITHUB_CONFIG_URL,
-        "emoji": "true",
-        "list": "false",
-        "udp": "true"
-    }
-    
     try:
-        # 3. 带着 Clash 的 Header 去请求 Subconverter
-        resp = requests.get(SUB_BACKEND_URL, params=params, headers=forward_headers, timeout=20)
+        # 直接发这个拼好的、带百分号的字符串
+        resp = requests.get(final_url, headers=forward_headers, timeout=20)
         resp.raise_for_status()
         
-        # 4. 剪枝逻辑处理 YAML 文本
         config_data = yaml.safe_load(resp.text)
         clean_config = main_prune(config_data)
-        result_yaml = yaml.dump(clean_config, allow_unicode=True, sort_keys=False)
-        
-        # 5. 【复原】构造返回对象，并复刻 Subconverter 回传的所有 Header
-        final_resp = Response(result_yaml, mimetype='text/yaml')
-        
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        for key, value in resp.headers.items():
-            if key.lower() not in excluded_headers:
-                final_resp.headers[key] = value
-                
-        return final_resp
+        return Response(yaml.dump(clean_config, allow_unicode=True, sort_keys=False), mimetype='text/yaml')
         
     except Exception as e:
-        return f"透明代理转换失败: {str(e)}", 500
-
+        return f"转换失败: {str(e)}\n最终发送给后端的URL: {final_url}", 500
 @app.route('/')
 def index():
     return "Private Subconverter Service is Running."
