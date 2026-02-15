@@ -1,0 +1,56 @@
+version = 1
+[custom]
+enable_rule_generator = true
+overwrite_original_rules = true
+
+add_emoji = true
+remove_old_emoji = true
+
+[[emoji]]
+import = "target/emoji.toml"
+
+
+# [[custom_groups]]
+# name = "🚀 节点选择"
+# type = "select"
+# rule = ["[]DIRECT", ".*"]
+
+[[custom_groups]]
+import = "target/country.toml"
+
+[[rulesets]]
+group = "🚀 节点选择"
+ruleset = "target/rules/Global.list"
+
+[[rulesets]]
+group = "DIRECT"
+ruleset = "target/rules/China.list"
+
+# 1. 拦截广告（可选，极简派如果不在意广告可删此条）
+[[rulesets]]
+group = "REJECT"
+ruleset = "rules/NobyDa/Surge/AdRule.list"
+
+# 2. 局域网与修正（确保本地连接不走代理）
+[[rulesets]]
+group = "DIRECT"
+ruleset = "rules/LocalAreaNetwork.list"
+
+# 3. 核心分流：所有被墙的国外服务（Google/Twitter/GitHub等）
+[[rulesets]]
+group = "🚀 节点选择"
+ruleset = "rules/DivineEngine/Surge/Ruleset/Global.list"
+
+# 4. 国内直连（基于域名和地理位置 IP）
+[[rulesets]]
+group = "DIRECT"
+ruleset = "rules/DivineEngine/Surge/Ruleset/China.list"
+
+[[rulesets]]
+group = "DIRECT"
+ruleset = "[]GEOIP,CN"
+
+# 5. 终极兜底：没被上面命中的全部走主组
+[[rulesets]]
+group = "🚀 节点选择"
+ruleset = "[]FINAL"

@@ -1,0 +1,19 @@
+# =========================================================
+# 📝 私人【代理】规则清单 (Global.list)
+# 优先级：最高 (位于所有自动化规则之前)
+# 语法说明：
+# 1. DOMAIN-SUFFIX : 匹配域名及其所有子域名 (最常用)
+#    - 例子: DOMAIN-SUFFIX,google.com -> 匹配 google.com 和 mail.google.com
+# 2. DOMAIN-KEYWORD: 只要包含这个关键词就走代理
+#    - 例子: DOMAIN-KEYWORD,github -> 匹配所有带 github 的域名
+# 3. DOMAIN        : 精确匹配某一个域名
+#    - 例子: DOMAIN,google.com -> 只匹配主站，不匹配子域名
+# 4. IP-CIDR       : 匹配特定 IP 段 (需加上 no-resolve 防止解析循环)
+#    - 例子: IP-CIDR,91.108.56.0/22,no-resolve
+# =========================================================
+
+# --- 在下方开始添加你的代理规则 ---
+
+DOMAIN-SUFFIX,xn--ngstr-lra8j.com
+DOMAIN-SUFFIX,services.googleapis.cn
+DOMAIN-KEYWORD,google
