@@ -8,10 +8,10 @@ app = Flask(__name__)
 
 # --- 配置 ---
 
-# 1. 订阅后端地址
+# 1. 订阅后端地址（记得加上 :25500 端口）
 SUB_BACKEND_URL = os.getenv(
     "SUB_BACKEND", 
-    "https://yoorarely-subconverter.zeabur.app/sub"
+    "http://subconverter.zeabur.internal:25500/sub"
 )
 
 # 2. 远程配置文件地址
@@ -22,14 +22,15 @@ GITHUB_CONFIG_URL = os.getenv(
 
 @app.route('/<path:airport_url>')
 def smart_proxy(airport_url):
-    # --- 核心修正开始 ---
-    # 之前报错是因为手动拼接 request.query_string 导致了二次编码（Double Encoding）
-    # 直接使用 request.url 获取完整链接并剥离当前 Host，以保留最原始的机场参数
-    full_url = request.url.split(request.host_url)[-1]
-    # --- 核心修正结束 ---
+    # 1. 还原机场链接
+    full_url = airport_url
+    if request.query_string:
+        full_url += '?' + request.query_string.decode('utf-8')
 
-    # 2. 【复原】直接复制 Clash 发给 Python 的所有 Header
+    # 2. 【核心修改】直接复制 Clash 发给 Python 的所有 Header
+    # 这样 Subconverter 就会看到完整的 User-Agent 和原始请求信息
     forward_headers = dict(request.headers)
+    # 移除一些可能冲突的本地 Host 字段
     forward_headers.pop('Host', None)
 
     params = {
@@ -51,9 +52,10 @@ def smart_proxy(airport_url):
         clean_config = main_prune(config_data)
         result_yaml = yaml.dump(clean_config, allow_unicode=True, sort_keys=False)
         
-        # 5. 【复原】构造返回对象，并复刻 Subconverter 回传的所有 Header
+        # 5. 【核心修改】构造返回对象，并把 Subconverter 回传的所有 Header 直接复刻
         final_resp = Response(result_yaml, mimetype='text/yaml')
         
+        # 排除掉一些敏感或自动生成的 Header (如 Content-Length)
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         for key, value in resp.headers.items():
             if key.lower() not in excluded_headers:
@@ -64,9 +66,10 @@ def smart_proxy(airport_url):
     except Exception as e:
         return f"透明代理转换失败: {str(e)}", 500
 
+# 根路由给个提示，防止点进去一片空白
 @app.route('/')
 def index():
-    return "Private Subconverter Service is Running."
+    return "Private Subconverter Service is Running. Append your subscription URL to the address bar."
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
