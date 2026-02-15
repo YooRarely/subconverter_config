@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # --- 配置 ---
 GITHUB_CONFIG_URL = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/remote_config.toml"
-SUB_BACKEND_URL = "http://asdlokj1qpi23subconverterlatest.zeabur.internal/sub"
+SUB_BACKEND_URL = "http://subconverter.zeabur.internal/sub"
 
 @app.route('/<path:airport_url>')
 def smart_proxy(airport_url):

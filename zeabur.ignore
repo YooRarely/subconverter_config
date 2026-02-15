@@ -1,0 +1,14 @@
+# 忽略规则文件夹和所有 list/toml 配置文件
+rules/
+*.toml
+*.txt
+*.list
+*.bat
+
+# 忽略本地构建脚本
+build.py
+convert.py
+
+# 忽略 Git 相关和说明文件
+.gitignore
+README.md
