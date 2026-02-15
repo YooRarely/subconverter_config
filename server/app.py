@@ -1,6 +1,6 @@
 from flask import Flask, Response, request
 
-from urllib.parse import quote_plus  # 必须加上这一行
+from urllib.parse import quote, unquote  # <--- 必须包含 quote
 import os
 import requests
 import yaml
@@ -22,22 +22,33 @@ GITHUB_CONFIG_URL = os.getenv(
     "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml"
 )
 
-@app.route('/<path:airport_url>')
-def smart_proxy(airport_url):
-    # 1. 拿到机场链接并拼接参数
-    full_airport_url = airport_url
-    if request.query_string:
-        full_airport_url += '?' + request.query_string.decode('utf-8')
+@app.route('/url')
+def proxy_with_query():
+# 1. 拿到问号后的原始字符串
+    raw_payload = request.query_string.decode('utf-8')
     
-    # 2. 【核心】强行编码！把 https:// 变成 https%3A%2F%2F
-    # 这是 Subconverter 要求的标准格式，不这么写它永远报 400
-    safe_airport_url = quote_plus(full_airport_url)
+    if not raw_payload:
+        return "Missing airport URL. Usage: /url?https://...", 400
 
-    # 3. 拼接
+    # 2. 动态判断：是否需要编码
+    # 如果字符串里包含明文的 '://'，说明它没被编码，Subconverter 会报错
+    # 我们需要把它变成编码格式
+    if "://" in raw_payload:
+        # 使用 quote 编码所有特殊字符 (包括 : / ? & =)
+        # safe='' 表示没有任何字符是安全的，全都要编码
+        target_url = quote(raw_payload, safe='')
+    else:
+        # 如果已经没有 :// 了，可能已经编码过了
+        # 为了防止“部分编码”的情况，保险做法是先 unquote 再统一 quote
+        # 但既然你要求“有斜杠就转”，我们保持简单：
+        target_url = raw_payload
+
+    # 3. 构造最终发往后端的 URL
+    # 注意：这里的 target_url 已经是百分号格式了
     final_url = (
         f"{SUB_BACKEND_URL}?"
         f"target=clash&"
-        f"url={safe_airport_url}&"
+        f"url={target_url}&"
         f"config={GITHUB_CONFIG_URL}&"
         f"emoji=true&list=false&udp=true"
     )
@@ -46,16 +57,24 @@ def smart_proxy(airport_url):
     forward_headers.pop('Host', None)
 
     try:
-        # 直接发这个拼好的、带百分号的字符串
+        # 直接发送拼好的字符串，不使用 params 字典
         resp = requests.get(final_url, headers=forward_headers, timeout=20)
         resp.raise_for_status()
         
+        # 剪枝逻辑 (保持你原有的 main_prune)
         config_data = yaml.safe_load(resp.text)
+        from pruner import main_prune
         clean_config = main_prune(config_data)
-        return Response(yaml.dump(clean_config, allow_unicode=True, sort_keys=False), mimetype='text/yaml')
+        
+        return Response(
+            yaml.dump(clean_config, allow_unicode=True, sort_keys=False), 
+            mimetype='text/yaml'
+        )
         
     except Exception as e:
-        return f"转换失败: {str(e)}\n最终发送给后端的URL: {final_url}", 500
+        return f"转换失败: {str(e)}\n最终构造地址: {final_url}", 500
+
+
 @app.route('/')
 def index():
     return "Private Subconverter Service is Running."
