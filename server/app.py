@@ -1,12 +1,16 @@
 from flask import Flask, Response, request
-
-from urllib.parse import quote, unquote  # <--- 必须包含 quote
+import logging
 import os
 import requests
 import yaml
 from pruner import main_prune
 
 app = Flask(__name__)
+
+
+# 配置日志：在 Vercel 控制台可以直接看到 stdout
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # --- 配置 ---
 
@@ -22,12 +26,33 @@ GITHUB_CONFIG_URL = os.getenv(
     "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml"
 )
 
+def hard_quote(text):
+    """
+    不仅是 quote，我们要的是绝对的、无死角的百分号转义。
+    只保留字母和数字，其余全部强制编码。
+    """
+    import string
+    # 定义绝对安全的字符：字母和数字
+    safe_chars = string.ascii_letters + string.digits
+    
+    result = []
+    for char in text:
+        if char in safe_chars:
+            result.append(char)
+        else:
+            # 将字符转换为 %XX 格式
+            result.append(f'%{ord(char):02X}')
+    return "".join(result)
+
 @app.route('/url')
 def proxy_with_query():
 # 1. 拿到问号后的原始字符串
     raw_payload = request.query_string.decode('utf-8')
+    logger.info(f"--- 新请求收到 ---")
+    logger.info(f"原始 Query String: {raw_payload}")
     
     if not raw_payload:
+        logger.warning("请求失败: 未提供机场 URL")
         return "Missing airport URL. Usage: /url?https://...", 400
 
     # 2. 动态判断：是否需要编码
@@ -36,7 +61,9 @@ def proxy_with_query():
     if "://" in raw_payload:
         # 使用 quote 编码所有特殊字符 (包括 : / ? & =)
         # safe='' 表示没有任何字符是安全的，全都要编码
-        target_url = quote(raw_payload, safe='')
+        target_url = hard_quote(raw_payload)
+        logger.info(f"Hard Quote 编码后: {target_url}")
+        # target_url = quote(raw_payload, safe='')
     else:
         # 如果已经没有 :// 了，可能已经编码过了
         # 为了防止“部分编码”的情况，保险做法是先 unquote 再统一 quote
@@ -52,19 +79,23 @@ def proxy_with_query():
         f"config={GITHUB_CONFIG_URL}&"
         f"emoji=true&list=false&udp=true"
     )
-
+    logger.info(f"完整 URL: {final_url}")
+    
     forward_headers = dict(request.headers)
     forward_headers.pop('Host', None)
 
     try:
-        # 直接发送拼好的字符串，不使用 params 字典
+        logger.info("正在请求订阅转换后端...")
         resp = requests.get(final_url, headers=forward_headers, timeout=20)
         resp.raise_for_status()
         
-        # 剪枝逻辑 (保持你原有的 main_prune)
+        logger.info("开始执行 YAML 剪枝 (main_prune)...")
         config_data = yaml.safe_load(resp.text)
         from pruner import main_prune
         clean_config = main_prune(config_data)
+        post_nodes = len(clean_config.get('proxies', []))
+        post_groups = len(clean_config.get('proxy-groups', []))
+        logger.info(f"剪枝完成，节点数: {post_nodes}, 策略组数: {post_groups}")
         
         return Response(
             yaml.dump(clean_config, allow_unicode=True, sort_keys=False), 
@@ -72,6 +103,7 @@ def proxy_with_query():
         )
         
     except Exception as e:
+        logger.error(f"发生异常: {str(e)}", exc_info=True)
         return f"转换失败: {str(e)}\n最终构造地址: {final_url}", 500
 
 
