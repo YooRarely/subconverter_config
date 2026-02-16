@@ -1,0 +1,87 @@
+# ==========================================================
+# 2026 全能进阶版 Clash 基础配置
+# ==========================================================
+mixed-port: 7890
+allow-lan: true
+bind-address: '*'
+mode: rule
+log-level: info
+ipv6: false
+unified-delay: true # 统一延迟计算，更真实的节点排序
+
+# 实验性功能：忽略解析失败，防止 DNS 暂时波动导致连接中断
+experimental:
+  ignore-resolve-fail: true
+
+dns:
+  enable: true
+  ipv6: false
+  listen: ':1053'
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  use-hosts: true
+  
+  # 关键点：解析代理节点域名的专用 DNS，防止节点解析走代理导致死锁
+  proxy-server-nameserver:
+    - https://dns.alidns.com/dns-query
+    - 223.5.5.5
+
+  # 用于解析 DoH 域名的基础 DNS
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - 1.1.1.1
+
+  # 国内主流加密 DNS，保证国内访问速度
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+    - tls://dns.alidns.com:853
+    - tls://dot.pub:853
+
+  # 国外加密 DNS，配合过滤器实现防污染
+  fallback:
+    - https://dns.google/dns-query
+    - https://1.1.1.1/dns-query
+    - tls://8.8.8.8:853
+
+  # 极致过滤器：集成了你提供的精准投毒 IP 列表
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+      - 0.0.0.0/32
+      - 127.0.0.1/32
+      - 61.160.148.90/32
+      - 124.236.16.201/32
+      - 182.43.124.6/32
+      - 106.74.25.198/32
+      - 120.222.19.204/32
+      - 120.204.204.201/32
+      - 47.92.198.202/32
+
+  # 游戏、办公、系统服务白名单（不走 Fake-IP）
+  fake-ip-filter:
+    # 局域网与基础服务
+    - "*.lan"
+    - "*.local"
+    - "localhost.ptlogin2.qq.com"
+    # 游戏联机与 STUN 优化
+    - "stun.*.*"
+    - "stun.*.*.*"
+    - "+.stun.*.*"
+    - "+.stun.*.*.*"
+    - "+.srv.nintendo.net"
+    - "+.stun.playstation.net"
+    - "xbox.*.microsoft.com"
+    - "*.square-enix.com"
+    - "*.finalfantasyxiv.com"
+    - "*.ff14.sdo.com"
+    # 系统与国产软件避坑
+    - "+.msftconnecttest.com"
+    - "+.msftncsi.com"
+    - "music.163.com"
+    - "*.music.126.net"
+    - "*.mcdn.bilivideo.cn"
+    - "+.media.dssott.com"

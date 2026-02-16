@@ -1,0 +1,33 @@
+
+[dns]
+enable = true
+listen = "0.0.0.0:1053"
+ipv6 = false
+enhanced-mode = "fake-ip"
+fake-ip-range = "198.18.0.1/16"
+
+# 国内 DNS：只用最快的加密 DNS，确保国内解析不被劫持且极速
+nameserver = [
+    "https://dns.alidns.com/dns-query",
+    "https://doh.pub/dns-query"
+]
+
+# 国外 DNS：确保国外域名解析 100% 准确
+fallback = [
+    "https://dns.google/dns-query",
+    "https://1.1.1.1/dns-query",
+    "tls://8.8.8.8:853"
+]
+
+# 过滤器：这是防止“由于国内 DNS 抢跑返回垃圾 IP”的关键
+fallback-filter = { geoip = true, geoip-code = "CN", ipcidr = ["240.0.0.0/4", "0.0.0.0/32"] }
+
+# 白名单：这些域名不走 Fake-IP，直接由系统解析，防止部分 APP 打不开
+fake-ip-filter = [
+    "*.lan",
+    "*.local",
+    "+.market.xiaomi.com",
+    "+.ptlogin2.qq.com",
+    "+.msftncsi.com",
+    "www.msftconnecttest.com"
+]

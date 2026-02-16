@@ -1,4 +1,4 @@
-version = 1
+version = 3
 [custom]
 enable_rule_generator = true
 overwrite_original_rules = true
@@ -6,14 +6,15 @@ overwrite_original_rules = true
 add_emoji = true
 remove_old_emoji = true
 
+
+
+clash_rule_base = "target/config/clash_base.yml"
+
 [[emoji]]
 import = "target/config/emoji.toml"
 
 
-# [[custom_groups]]
-# name = "🚀 节点选择"
-# type = "select"
-# rule = ["[]DIRECT", ".*"]
+
 
 [[custom_groups]]
 import = "target/config/country.toml"
