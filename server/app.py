@@ -1,4 +1,5 @@
 from flask import Flask, Response, request
+from urllib.parse import unquote, quote
 import logging
 import os
 import requests
@@ -26,27 +27,9 @@ GITHUB_CONFIG_URL = os.getenv(
     "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml"
 )
 
-def hard_quote(text):
-    """
-    不仅是 quote，我们要的是绝对的、无死角的百分号转义。
-    只保留字母和数字，其余全部强制编码。
-    """
-    import string
-    # 定义绝对安全的字符：字母和数字
-    safe_chars = string.ascii_letters + string.digits
-    
-    result = []
-    for char in text:
-        if char in safe_chars:
-            result.append(char)
-        else:
-            # 将字符转换为 %XX 格式
-            result.append(f'%{ord(char):02X}')
-    return "".join(result)
 
 @app.route('/url')
 def proxy_with_query():
-# 1. 拿到问号后的原始字符串
     raw_payload = request.query_string.decode('utf-8')
     logger.info(f"--- 新请求收到 ---")
     logger.info(f"原始 Query String: {raw_payload}")
@@ -54,24 +37,7 @@ def proxy_with_query():
     if not raw_payload:
         logger.warning("请求失败: 未提供机场 URL")
         return "Missing airport URL. Usage: /url?https://...", 400
-
-    # 2. 动态判断：是否需要编码
-    # 如果字符串里包含明文的 '://'，说明它没被编码，Subconverter 会报错
-    # 我们需要把它变成编码格式
-    if "://" in raw_payload:
-        # 使用 quote 编码所有特殊字符 (包括 : / ? & =)
-        # safe='' 表示没有任何字符是安全的，全都要编码
-        target_url = hard_quote(raw_payload)
-        logger.info(f"Hard Quote 编码后: {target_url}")
-        # target_url = quote(raw_payload, safe='')
-    else:
-        # 如果已经没有 :// 了，可能已经编码过了
-        # 为了防止“部分编码”的情况，保险做法是先 unquote 再统一 quote
-        # 但既然你要求“有斜杠就转”，我们保持简单：
-        target_url = raw_payload
-
-    # 3. 构造最终发往后端的 URL
-    # 注意：这里的 target_url 已经是百分号格式了
+    target_url = quote(unquote(raw_payload),safe='')
     final_url = (
         f"{SUB_BACKEND_URL}?"
         f"target=clash&"
