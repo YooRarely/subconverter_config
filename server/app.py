@@ -62,11 +62,19 @@ def proxy_with_query():
         post_nodes = len(clean_config.get('proxies', []))
         post_groups = len(clean_config.get('proxy-groups', []))
         logger.info(f"剪枝完成，节点数: {post_nodes}, 策略组数: {post_groups}")
-        
-        return Response(
-            yaml.dump(clean_config, allow_unicode=True, sort_keys=False), 
-            mimetype='text/yaml'
-        )
+        result_yaml = yaml.dump(clean_config, allow_unicode=True, sort_keys=False)
+        final_resp = Response(result_yaml, mimetype='text/yaml')
+        # 排除掉可能产生冲突的控制类 Header
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        for key, value in resp.headers.items():
+            if key.lower() not in excluded_headers:
+                # 这一步非常重要：Subscription-Userinfo 等流量信息就在这里透传回 Clash
+                final_resp.headers[key] = value
+        return final_resp
+        # return Response(
+        #     yaml.dump(clean_config, allow_unicode=True, sort_keys=False), 
+        #     mimetype='text/yaml'
+        # )
         
     except Exception as e:
         logger.error(f"发生异常: {str(e)}", exc_info=True)
