@@ -1,0 +1,9 @@
+[package]
+name = "vercel-adapter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+vercel_runtime = "2.1.1"
+tokio = { version = "1.0", features = ["full"] }
