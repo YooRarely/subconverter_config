@@ -16,8 +16,8 @@ dns:
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
   use-hosts: true
-  respect-rules: true # 加上这一行，解决泄漏的关键
-
+  respect-rules: true 
+  
   proxy-server-nameserver:
     - https://dns.alidns.com/dns-query
     - 223.5.5.5
