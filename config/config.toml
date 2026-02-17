@@ -49,7 +49,7 @@ ruleset = "target/rules/default/China.list"
 
 [[rulesets]]
 group = "DIRECT"
-ruleset = "[]GEOIP,CN"
+ruleset = "[]GEOIP,CN,no-resolve"
 
 # 5. 终极兜底：没被上面命中的全部走主组
 [[rulesets]]
