@@ -1,4 +1,4 @@
-version = 3
+version = 4
 [custom]
 enable_rule_generator = true
 overwrite_original_rules = true
@@ -49,7 +49,7 @@ ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/
 
 [[rulesets]]
 group = "DIRECT"
-ruleset = "[]GEOIP,CN"
+ruleset = "[]GEOIP,CN,no-resolve"
 
 # 5. 终极兜底：没被上面命中的全部走主组
 [[rulesets]]
