@@ -1,1 +1,10 @@
 __pycache__/
+server/target/
+
+
+.env
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
