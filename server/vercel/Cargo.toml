@@ -10,3 +10,4 @@ path = "api/index.rs"
 [dependencies]
 vercel_runtime = "2.1.1"
 tokio = { version = "1.0", features = ["full"] }
+serde_json = "1.0"

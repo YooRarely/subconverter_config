@@ -1,13 +1,14 @@
-use vercel_runtime::{run, Body, Error, Request, Response, StatusCode};
-
+use serde_json::{Value, json};
+use vercel_runtime::{Error, Request, run, service_fn};
+ 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    run(handler).await
+    let service = service_fn(handler);
+    run(service).await
 }
-
-pub async fn handler(_req: Request) -> Result<Response<Body>, Error> {
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "text/plain")
-        .body(Body::Text("success".into()))?)
+ 
+async fn handler(_req: Request) -> Result<Value, Error> {
+    Ok(json!({
+        "message": "Hello, world!",
+    }))
 }
