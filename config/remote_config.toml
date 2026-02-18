@@ -21,11 +21,11 @@ import = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/h
 
 [[rulesets]]
 group = "🚀 节点选择"
-ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/Global.list?v=1"
+ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/Global.list"
 
 [[rulesets]]
 group = "DIRECT"
-ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list?v=1"
+ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list"
 
 # 1. 拦截广告（可选，极简派如果不在意广告可删此条）
 [[rulesets]]
