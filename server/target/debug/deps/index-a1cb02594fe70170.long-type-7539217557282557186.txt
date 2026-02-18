@@ -1,0 +1,2 @@
+fn(http::request::Request<hyper::body::incoming::Incoming>) -> impl Future<Output = Result<Response<{type error}>, Box<(dyn std::error::Error + Send + Sync + 'static)>>> {handler}
+fn(http::request::Request<hyper::body::incoming::Incoming>) -> impl Future<Output = Result<Response<{type error}>, Box<(dyn std::error::Error + Send + Sync + 'static)>>> {handler}: tower_service::Service<(AppState, http::request::Request<hyper::body::incoming::Incoming>)>
