@@ -1,4 +1,0 @@
-warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
-package:   E:\SOFT\Network_Wall\订阅转换\asdlokj1qpi233\target\server\vercel\Cargo.toml
-workspace: E:\SOFT\Network_Wall\订阅转换\asdlokj1qpi233\target\server\Cargo.toml
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.33s
