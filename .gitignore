@@ -1,6 +1,6 @@
 __pycache__/
 server/target/
-
+/server/**/target/
 .env
 .vscode/
 .idea/
