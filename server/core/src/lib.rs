@@ -11,16 +11,15 @@ use hyper::{HeaderMap, StatusCode, header};
 use tracing::{error, info, warn};
 
 mod pruner;
-
+mod rules_processor;
 pub fn router() -> Router {
     Router::new()
         .route("/", get(index))
         .route("/url", get(proxy_handler))
 }
-//https%3A%2F%2Fwww.carpetpacific.com%2Fblanket%2Fapi%2Fv1%2Fclient%2Fsubscribe%3Ftoken%3Dabace595d5c9348d47b7f326f9023b85
-//https%253A%252F%252Fwww.carpetpacific.com%252Fblanket%252Fapi%252Fv1%252Fclient%252Fsubscribe%253Ftoken%253Dabace595d5c9348d47b7f326f9023b85
+
 async fn index() -> &'static str {
-    "Private Subconverter Service is Running (Rust Axum).V1"
+    "Private Subconverter Service is Running (Rust Axum).V1.1"
 }
 async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
     info!("--- 收到新请求 ---");
@@ -86,7 +85,8 @@ async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> imp
 
     // 调用 pruner.rs 里的主函数
     let clean_config = pruner::main_prune(config_data);
-    let result_yaml = serde_yaml_ng::to_string(&clean_config).unwrap_or_default();
+	let final_config = rules_processor::apply_custom_rules(clean_config).await;
+    let result_yaml = serde_yaml_ng::to_string(&final_config).unwrap_or_default();
 
     info!("处理完成，正在透传结果...");
 

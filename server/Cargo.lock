@@ -196,22 +196,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core"
-version = "0.1.0"
-source = "git+https://github.com/YooRarely/subconverter_config?branch=rust-server#302e1f14988e80548df097f8b6d2f725e53692cd"
-dependencies = [
- "axum",
- "hyper",
- "reqwest",
- "serde",
- "serde_yaml_ng",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "urlencoding",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1710,7 +1694,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 name = "vercel-adapter"
 version = "0.1.0"
 dependencies = [
- "core 0.1.0 (git+https://github.com/YooRarely/subconverter_config?branch=rust-server)",
+ "core",
  "tokio",
  "tower",
  "vercel_runtime",
