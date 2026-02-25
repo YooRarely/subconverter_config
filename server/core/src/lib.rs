@@ -17,9 +17,10 @@ pub fn router() -> Router {
         .route("/", get(index))
         .route("/url", get(proxy_handler))
 }
-
+//https%3A%2F%2Fwww.carpetpacific.com%2Fblanket%2Fapi%2Fv1%2Fclient%2Fsubscribe%3Ftoken%3Dabace595d5c9348d47b7f326f9023b85
+//https%253A%252F%252Fwww.carpetpacific.com%252Fblanket%252Fapi%252Fv1%252Fclient%252Fsubscribe%253Ftoken%253Dabace595d5c9348d47b7f326f9023b85
 async fn index() -> &'static str {
-    "Private Subconverter Service is Running (Rust Axum)."
+    "Private Subconverter Service is Running (Rust Axum).V1"
 }
 async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
     info!("--- 收到新请求 ---");
