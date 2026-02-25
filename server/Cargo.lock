@@ -198,7 +198,7 @@ dependencies = [
 [[package]]
 name = "core"
 version = "0.1.0"
-source = "git+https://github.com/YooRarely/subconverter_config?branch=rust-server#244d8601a51537f3029a4a9268d2b0e91e7675a6"
+source = "git+https://github.com/YooRarely/subconverter_config?branch=rust-server#302e1f14988e80548df097f8b6d2f725e53692cd"
 dependencies = [
  "axum",
  "hyper",
