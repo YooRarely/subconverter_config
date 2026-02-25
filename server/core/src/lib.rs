@@ -30,8 +30,8 @@ async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> imp
         return (StatusCode::BAD_REQUEST, "Missing airport URL.").into_response();
     }
 
-    // 修正：强制进行 URL 编码
-    let encoded_url = urlencoding::encode(raw_query);
+    let decoded_url = urlencoding::decode(raw_query).unwrap_or_else(|_|std::borrow::Cow::Borrowed(raw_query));
+    let encoded_url = urlencoding::encode(&decoded_url);
 
     let sub_backend = env::var("SUB_BACKEND")
         .unwrap_or_else(|_| "http://subconverter.zeabur.internal:25500/sub".into());

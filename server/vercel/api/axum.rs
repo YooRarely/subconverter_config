@@ -1,7 +1,7 @@
 use core::router;
 use tower::ServiceBuilder;
 use vercel_runtime::Error;
-use vercel_runtime::axum::{VercelLayer, stream_response};
+use vercel_runtime::axum::{VercelLayer};
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let app = ServiceBuilder::new()
