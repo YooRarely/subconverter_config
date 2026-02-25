@@ -3,7 +3,7 @@ use std::env;
 use axum::{
     Router,
     body::Body,
-    extract::OriginalUri,
+    extract::{OriginalUri, Path},
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -16,31 +16,18 @@ pub fn router() -> Router {
     Router::new()
         .route("/", get(index))
         .route("/url", get(proxy_handler))
+        .route("/{key}", get(subscript))
 }
-
-async fn index() -> &'static str {
-    "Private Subconverter Service is Running (Rust Axum).V1.1"
-}
-async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
-    info!("--- 收到新请求 ---");
-
-    let raw_query = uri.query().unwrap_or("");
-    if raw_query.is_empty() {
-        warn!("请求失败: 未提供机场 URL");
-        return (StatusCode::BAD_REQUEST, "Missing airport URL.").into_response();
-    }
-
-    let decoded_url = urlencoding::decode(raw_query).unwrap_or_else(|_|std::borrow::Cow::Borrowed(raw_query));
-    let encoded_url = urlencoding::encode(&decoded_url);
-
+async fn execute_proxy_logic<URL: AsRef<str>>(headers: HeaderMap,url: URL) ->Response
+{
     let sub_backend = env::var("SUB_BACKEND")
         .unwrap_or_else(|_| "http://subconverter.zeabur.internal:25500/sub".into());
     let github_config = env::var("GITHUB_CONFIG_URL")
-        .unwrap_or_else(|_| "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml".into());
+	.unwrap_or_else(|_| "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/config/remote_config.toml".into());
 
     let final_url = format!(
         "{}?target=clash&url={}&config={}&emoji=true&list=false&udp=true",
-        sub_backend, encoded_url, github_config
+        sub_backend, url.as_ref(), github_config
     );
 
     let mut forward_headers = headers.clone();
@@ -85,7 +72,7 @@ async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> imp
 
     // 调用 pruner.rs 里的主函数
     let clean_config = pruner::main_prune(config_data);
-	let final_config = rules_processor::apply_custom_rules(clean_config).await;
+    let final_config = rules_processor::apply_custom_rules(clean_config).await;
     let result_yaml = serde_yaml_ng::to_string(&final_config).unwrap_or_default();
 
     info!("处理完成，正在透传结果...");
@@ -107,9 +94,46 @@ async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> imp
             }
         }
     }
-
     response
         .body(Body::from(result_yaml))
         .unwrap()
         .into_response()
+}
+async fn index() -> &'static str {
+    "Private Subconverter Service is Running (Rust Axum).V1.2"
+}
+async fn proxy_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
+    info!("--- 收到新请求 ---");
+
+    let raw_query = uri.query().unwrap_or("");
+    if raw_query.is_empty() {
+        warn!("请求失败: 未提供机场 URL");
+        return (StatusCode::BAD_REQUEST, "Missing airport URL.").into_response();
+    }
+
+    let decoded_url =
+        urlencoding::decode(raw_query).unwrap_or_else(|_| std::borrow::Cow::Borrowed(raw_query));
+    let encoded_url = urlencoding::encode(&decoded_url);
+	execute_proxy_logic(headers,encoded_url).await
+	
+   
+}
+async fn subscript(
+    Path(key): Path<String>, // 提取捕获到的路径字符串
+    headers: HeaderMap,
+    OriginalUri(_): OriginalUri,
+) -> impl IntoResponse {
+    info!("尝试匹配路径密钥: {}", key);
+
+    // 1. 直接把路径 key 当作环境变量名去查找
+    match std::env::var(&key) {
+        Ok(airport_url) => {
+            info!("校验通过，密钥 {} 对应机场: {}", key, airport_url);
+			execute_proxy_logic(headers,airport_url).await
+        }
+        Err(_) => {
+            warn!("非法访问: 环境变量中找不到密钥 {}", key);
+            (StatusCode::NOT_FOUND, "Resource not found").into_response()
+        }
+    }
 }
