@@ -47,7 +47,8 @@ async fn subscribe_handler(
     match subscribe_map.get(&key) {
         Some(airport_url) => {
             info!("校验通过，密钥 {} 对应机场: {}", key, airport_url);
-            url::request(headers, airport_url).await
+			let encoded_url = urlencoding::encode(&airport_url);
+            url::request(headers, encoded_url).await
         }
         None => {
             warn!("非法访问: 环境变量中找不到密钥 {}", key);
