@@ -1,5 +1,5 @@
 # --- 编译阶段 ---
-FROM rust:1.80-slim AS builder
+FROM rustlang/rust:nightly-slim AS builder
 WORKDIR /app
 # 先拷贝总管理论和所有子项目
 COPY . .
