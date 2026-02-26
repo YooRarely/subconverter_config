@@ -7,7 +7,7 @@ COPY . .
 RUN cargo build --release -p core
 	
 # --- 运行阶段 ---
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 # 必须安装 ca-certificates，否则你的 Rust 程序无法请求 https 链接
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
