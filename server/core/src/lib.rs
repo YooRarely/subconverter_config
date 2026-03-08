@@ -1,7 +1,7 @@
 use axum::{
     Router,
     extract::{OriginalUri, Path},
-    response::{IntoResponse, Response},
+    response::{IntoResponse},
     routing::get,
 };
 use hyper::{HeaderMap, StatusCode};
