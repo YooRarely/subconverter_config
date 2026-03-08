@@ -79,7 +79,7 @@ fn prune_groups(config: &mut Value) -> bool {
 }
 
 /// 导出主剪枝函数
-pub fn main_prune(mut config: Value) -> Value {
+pub fn prune(mut config: Value) -> Value {
     if config.get("proxy-groups").is_none() || config.get("proxies").is_none() {
         return config;
     }

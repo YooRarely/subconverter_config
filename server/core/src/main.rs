@@ -1,18 +1,14 @@
-mod pruner; // 引入新文件
-
 use core::router;
-use std::env;
+
 use tracing::info;
+mod env;
 #[tokio::main]
 async fn main() {
+    env::init().expect("QEnv 校验失败：缺少必要的环境变量");
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::new(
-            env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
-        ))
+        .with_env_filter(tracing_subscriber::EnvFilter::new(env::RUST_LOG))
         .init();
-
-    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
-    let addr = format!("0.0.0.0:{}", port);
+    let addr = format!("0.0.0.0:{}", env::PORT);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     info!("🚀 Rust 中转服务已启动: http://{}", addr);

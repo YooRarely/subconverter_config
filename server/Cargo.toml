@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = ["cache",
     "core",
     "vercel",
 ]

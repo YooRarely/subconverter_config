@@ -1,5 +1,6 @@
 __pycache__/
 /server/**/target/
+/server/.env
 /config/subscribe.json
 .env
 .vscode/
