@@ -8,51 +8,15 @@ unified-delay: true
 
 experimental:
   ignore-resolve-fail: true
-
 dns:
   enable: true
-  ipv6: false
-  listen: :1053
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  use-hosts: true
-  respect-rules: true 
-  
-  proxy-server-nameserver:
-    - https://dns.alidns.com/dns-query
-    - 223.5.5.5
-
-  default-nameserver:
-    - 223.5.5.5
-    - 119.29.29.29
-    - 1.1.1.1
-
   nameserver:
-    - https://dns.alidns.com/dns-query
-    - https://doh.pub/dns-query
-    - tls://dns.alidns.com:853
-    - tls://dot.pub:853
-
-  fallback:
-    - https://dns.google/dns-query
-    - https://1.1.1.1/dns-query
-    - tls://8.8.8.8:853
-
-  fallback-filter:
-    geoip: true
-    geoip-code: CN
-    ipcidr:
-      - 240.0.0.0/4
-      - 0.0.0.0/32
-      - 127.0.0.1/32
-      - 61.160.148.90/32
-      - 124.236.16.201/32
-      - 182.43.124.6/32
-      - 106.74.25.198/32
-      - 120.222.19.204/32
-      - 120.204.204.201/32
-      - 47.92.198.202/32
-
+    - https://dns.alidns.com/dns-query # 阿里 DoH，走 443 端口
+    - https://doh.pub/dns-query # 腾讯 DoH
+    - 192.168.1.1 # 保底 DNS，走 53 端口
+  # 完全不进行本地真实解析，所有域名直接吐回 Fake-IP
   fake-ip-filter:
     - "*.lan"
     - "*.local"
@@ -73,3 +37,68 @@ dns:
     - "*.music.126.net"
     - "*.mcdn.bilivideo.cn"
     - "+.media.dssott.com"
+
+# dns:
+#   enable: true
+#   ipv6: false
+#   listen: :1053
+#   enhanced-mode: fake-ip
+#   fake-ip-range: 198.18.0.1/16
+#   use-hosts: true
+#   respect-rules: true 
+  
+#   proxy-server-nameserver:
+#     - https://dns.alidns.com/dns-query
+#     - 223.5.5.5
+
+#   default-nameserver:
+#     - 223.5.5.5
+#     - 119.29.29.29
+#     - 1.1.1.1
+
+#   nameserver:
+#     - https://dns.alidns.com/dns-query
+#     - https://doh.pub/dns-query
+#     - tls://dns.alidns.com:853
+#     - tls://dot.pub:853
+
+#   fallback:
+#     - https://dns.google/dns-query
+#     - https://1.1.1.1/dns-query
+#     - tls://8.8.8.8:853
+
+#   fallback-filter:
+#     geoip: true
+#     geoip-code: CN
+#     ipcidr:
+#       - 240.0.0.0/4
+#       - 0.0.0.0/32
+#       - 127.0.0.1/32
+#       - 61.160.148.90/32
+#       - 124.236.16.201/32
+#       - 182.43.124.6/32
+#       - 106.74.25.198/32
+#       - 120.222.19.204/32
+#       - 120.204.204.201/32
+#       - 47.92.198.202/32
+
+#   fake-ip-filter:
+#     - "*.lan"
+#     - "*.local"
+#     - "localhost.ptlogin2.qq.com"
+#     - "stun.*.*"
+#     - "stun.*.*.*"
+#     - "+.stun.*.*"
+#     - "+.stun.*.*.*"
+#     - "+.srv.nintendo.net"
+#     - "+.stun.playstation.net"
+#     - "xbox.*.microsoft.com"
+#     - "*.square-enix.com"
+#     - "*.finalfantasyxiv.com"
+#     - "*.ff14.sdo.com"
+#     - "+.msftconnecttest.com"
+#     - "+.msftncsi.com"
+#     - "music.163.com"
+#     - "*.music.126.net"
+#     - "*.mcdn.bilivideo.cn"
+#     - "+.media.dssott.com"

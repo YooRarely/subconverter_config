@@ -16,7 +16,11 @@
 DOMAIN-SUFFIX,cn
 DOMAIN-SUFFIX,steamcontent.com
 DOMAIN-SUFFIX,lanzouw.com
+DOMAIN-SUFFIX,lanzoue.com
+DOMAIN-SUFFIX,lanrar.com
 DOMAIN-SUFFIX,leigod.com
+DOMAIN-SUFFIX,qianwen.com
+DOMAIN-SUFFIX,webgetstore.com
 DOMAIN-KEYWORD,tiancity
 DOMAIN-KEYWORD,gamekee
 DOMAIN-KEYWORD,hortorgames
@@ -29,3 +33,4 @@ DOMAIN-KEYWORD,laohu
 DOMAIN-KEYWORD,wmupd
 DOMAIN-KEYWORD,wanmei
 DOMAIN-KEYWORD,alipay
+DOMAIN-KEYWORD,quark
