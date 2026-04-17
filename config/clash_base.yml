@@ -14,7 +14,6 @@ dns:
   listen: :1053
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  respect-rules: true
   nameserver:
     - https://dns.alidns.com/dns-query # 阿里 DoH，走 443 端口
     - https://doh.pub/dns-query # 腾讯 DoH
