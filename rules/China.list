@@ -29,6 +29,8 @@ DOMAIN-SUFFIX,tapimg.com
 DOMAIN-SUFFIX,tapdb.net
 DOMAIN-SUFFIX,tapsvc.com
 DOMAIN-SUFFIX,deepseek.com
+DOMAIN-SUFFIX,inftab.com
+DOMAIN-SUFFIX,infinitynewtab.com
 DOMAIN-KEYWORD,biligame
 DOMAIN-KEYWORD,weixin
 DOMAIN-KEYWORD,taptap
@@ -48,3 +50,4 @@ DOMAIN-KEYWORD,alipay
 DOMAIN-KEYWORD,quark
 DOMAIN-KEYWORD,tapnow
 DOMAIN-KEYWORD,tanshudata
+
