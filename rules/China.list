@@ -13,6 +13,7 @@
 # =========================================================
 
 # --- 在下方开始添加你的直连规则 ---
+
 DOMAIN-SUFFIX,cn
 DOMAIN-SUFFIX,steamcontent.com
 DOMAIN-SUFFIX,lanzouw.com
@@ -31,13 +32,8 @@ DOMAIN-SUFFIX,tapsvc.com
 DOMAIN-SUFFIX,deepseek.com
 DOMAIN-SUFFIX,inftab.com
 DOMAIN-SUFFIX,infinitynewtab.com
-DOMAIN-SUFFIX,bytedance.com
-DOMAIN-SUFFIX,ibytedapm.com
-DOMAIN-SUFFIX,bytegoofy.com
-DOMAIN-SUFFIX,bytednsdoc.com
-DOMAIN-SUFFIX,bytetcc.com
-DOMAIN-SUFFIX,byteimg.com
 DOMAIN-SUFFIX,volcengine.com
+DOMAIN-SUFFIX,zijieapi.com
 DOMAIN-KEYWORD,biligame
 DOMAIN-KEYWORD,weixin
 DOMAIN-KEYWORD,taptap
@@ -59,5 +55,5 @@ DOMAIN-KEYWORD,tapnow
 DOMAIN-KEYWORD,tanshudata
 DOMAIN-KEYWORD,douyin
 DOMAIN-KEYWORD,beijing
-
+DOMAIN-REGEX,^(.*\.)?i?byted?[a-zA-Z0-9-]*\.[a-z]{2,}$
 
