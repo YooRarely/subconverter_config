@@ -58,6 +58,7 @@ DOMAIN-KEYWORD,beijing
 DOMAIN-KEYWORD,csdn
 DOMAIN-KEYWORD,dangbei
 DOMAIN-KEYWORD,xiaowang
+DOMAIN-KEYWORD,gitee
 DOMAIN-REGEX,^(.*\.)?et-[a-zA-Z0-9-]*\.com$
 DOMAIN-REGEX,^(.*\.)?i?byted?[a-zA-Z0-9-]*\.[a-z]{2,}$
 
