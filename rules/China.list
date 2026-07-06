@@ -36,6 +36,8 @@ DOMAIN-SUFFIX,volcengine.com
 DOMAIN-SUFFIX,zijieapi.com
 DOMAIN-SUFFIX,klingai.com
 DOMAIN-SUFFIX,mchost.guru
+DOMAIN-SUFFIX,tiktok-row.net
+DOMAIN-SUFFIX,faceu.mobi
 DOMAIN-KEYWORD,biligame
 DOMAIN-KEYWORD,weixin
 DOMAIN-KEYWORD,taptap
@@ -65,7 +67,11 @@ DOMAIN-KEYWORD,xiaoyunque
 DOMAIN-KEYWORD,jianying
 DOMAIN-KEYWORD,doubao
 DOMAIN-KEYWORD,fd-api
+DOMAIN-KEYWORD,fd-img
 DOMAIN-KEYWORD,kechuangai
+DOMAIN-KEYWORD,tieba
+DOMAIN-KEYWORD,zcode
+DOMAIN-KEYWORD,qiyukf
 DOMAIN-REGEX,^(.*\.)?et-[a-zA-Z0-9-]*\.com$
 DOMAIN-REGEX,^(.*\.)?i?byted?[a-zA-Z0-9-]*\.[a-z]{2,}$
 
