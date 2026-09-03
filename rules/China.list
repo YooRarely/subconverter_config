@@ -38,6 +38,14 @@ DOMAIN-SUFFIX,klingai.com
 DOMAIN-SUFFIX,mchost.guru
 DOMAIN-SUFFIX,tiktok-row.net
 DOMAIN-SUFFIX,faceu.mobi
+DOMAIN-SUFFIX,tvfuwu.com
+DOMAIN-SUFFIX,kuaishou.com
+DOMAIN-SUFFIX,ksapisrv.com
+DOMAIN-SUFFIX,wskwai.com
+DOMAIN-SUFFIX,gifshow.com
+DOMAIN-SUFFIX,immersivetranslate.com
+DOMAIN-SUFFIX,cn.bing.com
+DOMAIN-SUFFIX,bcebos.com
 DOMAIN-KEYWORD,biligame
 DOMAIN-KEYWORD,weixin
 DOMAIN-KEYWORD,taptap
@@ -72,6 +80,7 @@ DOMAIN-KEYWORD,kechuangai
 DOMAIN-KEYWORD,tieba
 DOMAIN-KEYWORD,zcode
 DOMAIN-KEYWORD,qiyukf
+DOMAIN-KEYWORD,qoder
 DOMAIN-REGEX,^(.*\.)?et-[a-zA-Z0-9-]*\.com$
 DOMAIN-REGEX,^(.*\.)?i?byted?[a-zA-Z0-9-]*\.[a-z]{2,}$
 
