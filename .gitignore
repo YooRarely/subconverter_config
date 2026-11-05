@@ -7,6 +7,7 @@ __pycache__/
 /server2/*.exe
 /server2/.env
 sample_real_sub.yml
+*.exe
 *.env
 .vscode/
 .idea/

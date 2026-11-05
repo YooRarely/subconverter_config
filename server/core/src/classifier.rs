@@ -65,7 +65,9 @@ impl Classifier {
             let parts: Vec<&str> = line.splitn(2, '/').collect();
             let name = parts[0].trim().to_string();
             let emoji = parts[1].trim().to_string();
-            let group_name = format!("{} {}", emoji, name);
+            // 关键：在 emoji 与国家名称之间插入零宽空格 \u{200b} (ZWS)
+            // 彻底防止策略组名与只有单节点的机场节点名完全同名导致的 Clash 自环死循环 (loop is detected in ProxyGroup)
+            let group_name = format!("{}\u{200b} {}", emoji, name);
 
             emoji_to_name.insert(emoji.clone(), name.clone());
             countries.push(CountryInfo {
@@ -165,7 +167,7 @@ impl Classifier {
                     .get(&emoji)
                     .cloned()
                     .unwrap_or_else(|| "节点".to_string());
-                let group_name = format!("{} {}", emoji, name);
+                let group_name = format!("{}\u{200b} {}", emoji, name);
                 country_groups.push((group_name, nodes));
             }
         }

@@ -57,23 +57,23 @@ proxies:
     assert_eq!(group_names[0], "🚀 节点选择");
 
     // 必须包含香港、台湾、日本、美国、剩余流量、以及未知
-    assert!(group_names.contains(&"🇭🇰 香港".to_string()));
-    assert!(group_names.contains(&"🇹🇼 台湾".to_string()));
-    assert!(group_names.contains(&"🇯🇵 日本".to_string()));
-    assert!(group_names.contains(&"🇺🇸 美国".to_string()));
-    assert!(group_names.contains(&"🏳️‍🌈 剩余流量".to_string()));
+    assert!(group_names.iter().any(|g| g.contains("香港")));
+    assert!(group_names.iter().any(|g| g.contains("台湾")));
+    assert!(group_names.iter().any(|g| g.contains("日本")));
+    assert!(group_names.iter().any(|g| g.contains("美国")));
+    assert!(group_names.iter().any(|g| g.contains("剩余流量")));
     assert!(group_names.contains(&"❓ 未知".to_string()));
 
     // 没有节点的组（如 🇨🇳 中国, 🇬🇧 英国 等）绝不应该生成
-    assert!(!group_names.contains(&"🇨🇳 中国".to_string()));
-    assert!(!group_names.contains(&"🇬🇧 英国".to_string()));
+    assert!(!group_names.iter().any(|g| g.contains("中国")));
+    assert!(!group_names.iter().any(|g| g.contains("英国")));
 
     // 验证主组包含了这些策略组
     let main_group = &groups[0];
     let main_proxies = main_group.get(&Value::String("proxies".to_string())).and_then(|v| v.as_sequence()).unwrap();
     let main_proxy_names: Vec<&str> = main_proxies.iter().filter_map(|v| v.as_str()).collect();
-    assert!(main_proxy_names.contains(&"🇭🇰 香港"));
-    assert!(main_proxy_names.contains(&"🇹🇼 台湾"));
+    assert!(main_proxy_names.iter().any(|p| p.contains("香港")));
+    assert!(main_proxy_names.iter().any(|p| p.contains("台湾")));
     assert!(main_proxy_names.contains(&"❓ 未知"));
 
     // 4. 验证 rules 存在并包含核心条目
