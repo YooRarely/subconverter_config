@@ -100,8 +100,9 @@ impl RulesBuilder {
         // 1. 本地优先：检查本地磁盘（若在本地运行，直接读取本地文件，不需要网络）
         let paths_to_try = [
             file_path.to_string(),
+            format!("core/{}", file_path),
             format!("../{}", file_path),
-            format!("server2/{}", file_path),
+            format!("../core/{}", file_path),
         ];
 
         for p in &paths_to_try {
@@ -172,8 +173,9 @@ impl RulesBuilder {
     fn load_file_or_default(file_path: &str, default_content: &'static str) -> String {
         let paths_to_try = [
             file_path.to_string(),
+            format!("core/{}", file_path),
             format!("../{}", file_path),
-            format!("server2/{}", file_path),
+            format!("../core/{}", file_path),
         ];
 
         for p in &paths_to_try {

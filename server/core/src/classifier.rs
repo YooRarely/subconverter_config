@@ -50,9 +50,8 @@ pub struct GroupedNodes {
 impl Classifier {
     /// 从配置文件或内置默认数据初始化分类器
     pub fn new() -> Self {
-        // 1. 读取 emoji.txt（优先读取本地文件，失败则使用内置常量）
-        let emoji_txt = std::fs::read_to_string("config/emoji.txt")
-            .unwrap_or_else(|_| DEFAULT_EMOJI_TXT.to_string());
+        // 1. 读取 emoji.txt（支持多层级路径探查，失败则使用内置常量）
+        let emoji_txt = Self::load_config_file("emoji.txt", DEFAULT_EMOJI_TXT);
 
         let mut countries = Vec::new();
         let mut emoji_to_name = HashMap::new();
@@ -78,8 +77,7 @@ impl Classifier {
         }
 
         // 2. 读取 emoji.toml
-        let emoji_toml_str = std::fs::read_to_string("config/emoji.toml")
-            .unwrap_or_else(|_| DEFAULT_EMOJI_TOML.to_string());
+        let emoji_toml_str = Self::load_config_file("emoji.toml", DEFAULT_EMOJI_TOML);
 
         let toml_data: EmojiTomlConfig = toml::from_str(&emoji_toml_str).unwrap_or_else(|e| {
             warn!("解析 emoji.toml 失败，回退到内置默认规则: {}", e);
@@ -176,5 +174,20 @@ impl Classifier {
             country_groups,
             unknown_nodes,
         }
+    }
+
+    fn load_config_file(file_name: &str, default_val: &'static str) -> String {
+        let candidates = [
+            format!("config/{}", file_name),
+            format!("core/config/{}", file_name),
+            format!("../config/{}", file_name),
+            format!("../core/config/{}", file_name),
+        ];
+        for p in &candidates {
+            if let Ok(c) = std::fs::read_to_string(p) {
+                return c;
+            }
+        }
+        default_val.to_string()
     }
 }
