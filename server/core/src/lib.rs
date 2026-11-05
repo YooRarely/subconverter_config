@@ -130,6 +130,13 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
     };
     req_builder = req_builder.header(header::USER_AGENT, airport_ua);
 
+    // 透传客户端的真实 IP 头部，彻底解除机场对海外云端机房 (Render) 的风控拦截
+    for ip_header in &["x-forwarded-for", "cf-connecting-ip", "x-real-ip"] {
+        if let Some(val) = headers.get(*ip_header) {
+            req_builder = req_builder.header(*ip_header, val);
+        }
+    }
+
     let backend_res = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {

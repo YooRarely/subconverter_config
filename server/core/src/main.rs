@@ -19,8 +19,11 @@ async fn main() {
         .await
         .unwrap_or_else(|e| panic!("绑定监听端口 {} 失败: {}", addr, e));
 
-    info!("🚀 Rust 本地独立订阅转换服务 (Server2) 已启动: http://{}", addr);
+    info!("========================================================");
+    info!("🚀 本地独立订阅转换服务已成功就绪！");
+    info!("👉 本地访问地址: http://127.0.0.1:{}", env::PORT);
     info!("💡 支持接口: GET /url?<订阅链接>  或  GET /{{key}}?{{订阅链接}}");
+    info!("========================================================");
 
     axum::serve(listener, router()).await.unwrap();
 }
