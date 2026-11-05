@@ -2,6 +2,11 @@ __pycache__/
 /server/**/target/
 /server/.env
 /config/subscribe.json
+/server2/**/target/
+/server2/subscriptions.json
+/server2/*.exe
+/server2/.env
+sample_real_sub.yml
 *.env
 .vscode/
 .idea/

@@ -3,8 +3,8 @@ FROM rustlang/rust:nightly-slim AS builder
 WORKDIR /app
 # 先拷贝总管理论和所有子项目
 COPY . .
-# 强制指定编译 core 这个 member
-RUN cargo build --release -p core
+# 强制指定编译 subconverter-core 这个 member
+RUN cargo build --release -p subconverter-core
 	
 # --- 运行阶段 ---
 FROM debian:trixie-slim
@@ -12,6 +12,6 @@ FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 # 从 builder 拷贝二进制文件
-COPY --from=builder /app/target/release/core /app/sub-proxy
+COPY --from=builder /app/target/release/subconverter-core /app/sub-proxy
 # 运行
 CMD ["./sub-proxy"]

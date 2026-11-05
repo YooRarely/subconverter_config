@@ -21,7 +21,7 @@ tower = { version = "0.5" }
 # core = { git = "https://github.com/YooRarely/subconverter_config", branch = "rust-server" }
 
 
-core = {path = "../core"}
+core = { package = "subconverter-core", path = "../core" }
 
 [profile.release]
 codegen-units = 1
