@@ -27,6 +27,10 @@ async fn vercel_font_handler() -> impl IntoResponse {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // 优先加载环境变量 (Vercel Serverless 冷启动时仅初始化一次)
+    dotenvy::dotenv().ok();
+    let _ = core::env::init();
+
     // 挂载 core 基础 API 路由，并在 vercel 适配层自主挂载静态 Web 资产 (0 路由冲突)
     let app_router = api_router()
         .route("/", get(vercel_page_handler))
