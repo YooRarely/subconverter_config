@@ -67,86 +67,51 @@ async fn subscribe_handler(
     let key = urlencoding::decode(&raw_key)
         .unwrap_or(std::borrow::Cow::Borrowed(&raw_key))
         .to_string();
-    info!("尝试匹配路径密钥: {} (原始: {})", key, raw_key);
+    info!("收到客户端订阅请求: key={} (原始路径={})", key, raw_key);
+
     let query = uri.query().unwrap_or("");
     let force_refresh = query.contains("refresh");
 
-    match query {
-        "" | "refresh" => match registry::lookup_item(&key).await {
-            Some(item) => {
-                if item.is_snapshot_mode() {
-                    // 已开启真节点快照直发模式：
-                    // 1. 节点部分：直接从真节点底包重构输出（100%全绿、防风控、毫秒级响应）
-                    // 2. 流量部分：动态握手获取最新的实时剩余流量响应头（若超时则用已有流量保底）
-                    let latest_user_info = fetch_live_traffic_info(&item.url, &item.user_info, &key).await;
-
-                    info!("⚡ [真节点快照直发] 命中真节点底包直接重构输出: {} (包含 {} 个节点, 实时流量已动态同步)", key, item.node_count);
-                    render_yaml_response(&item.raw_yaml, force_refresh, None, Some(&latest_user_info)).await
-                } else {
-                    // 实时在线拉取模式：向原 URL 实时拉取并重构输出，顺便记录/更新状态看板（绝不冻结/缓存 YAML）
-                    info!("🌐 [实时在线拉取] 未缓存真节点快照，向原 URL 实时请求: {} -> {}", key, item.url);
-                    process_subscription(headers, &item.url, force_refresh, Some(&key)).await
-                }
-            }
-            None => {
-                warn!("未找到订阅: {}", key);
-                (
-                    StatusCode::NOT_FOUND,
-                    format!("未找到登记的订阅: {}\n请先在管理后台 /admin 中添加该订阅。", key),
-                )
-                    .into_response()
-            }
-        },
-        "clear" => {
-            registry::unregister(&key).await;
-            (StatusCode::OK, format!("密钥 [{}] 已注销", key)).into_response()
-        }
-        _ => {
-            // 兼容快捷带参注册
-            let decoded_url =
-                urlencoding::decode(query).unwrap_or_else(|_| std::borrow::Cow::Borrowed(query));
-            registry::register(&key, &decoded_url).await;
-            process_subscription(headers, &decoded_url, force_refresh, Some(&key)).await
-        }
-    }
-}
-
-/// 辅助方法：在快照直发模式下，动态向机场握手抓取最新的实时流量响应头（仅耗时数十毫秒，失败则回退已有流量）
-async fn fetch_live_traffic_info(url: &str, fallback_info: &str, key: &str) -> String {
-    let url = url.trim();
-    if url.is_empty() {
-        return fallback_info.to_string();
+    // 客户端显式携带了 ?clear 参数时直接执行注销
+    if query == "clear" || query.starts_with("clear&") {
+        registry::unregister(&key).await;
+        return (StatusCode::OK, format!("密钥 [{}] 已注销", key)).into_response();
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(4))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+    // 1. 优先按 key 查询数据库（只要存在，绝对是正式订阅，绝不被任何 query 参数破坏）
+    if let Some(item) = registry::lookup_item(&key).await {
+        // 核心分支 1：真节点快照直发模式 (已缓存真节点)
+        // 铁律：100% 纯内存只读转换与直发，0 写库操作，绝无可能被篡改或覆盖！
+        if item.is_snapshot_mode() {
+            info!("⚡ [真节点快照直发] 命中锁定真节点: {} (包含 {} 个节点, 纯只读极速直发)", key, item.node_count);
+            return render_yaml_response(
+                &item.raw_yaml,
+                force_refresh,
+                None,
+                Some(&item.user_info),
+            ).await;
+        }
 
-    match client.get(url).header(header::USER_AGENT, "clash.meta").send().await {
-        Ok(resp) => {
-            if let Some(info_val) = resp.headers().get("subscription-userinfo").and_then(|v| v.to_str().ok()) {
-                let info_str = info_val.to_string();
-                if !info_str.is_empty() {
-                    // 异步更新后台数据库中记录的流量状态
-                    let k = key.to_string();
-                    let info_clone = info_str.clone();
-                    tokio::spawn(async move {
-                        if let Some(mut it) = registry::lookup_item(&k).await {
-                            it.user_info = info_clone;
-                            registry::save_subscription(it).await;
-                        }
-                    });
-                    return info_str;
-                }
-            }
-        }
-        Err(e) => {
-            warn!("快照模式下动态获取最新流量超时或异常 (使用已有流量保底): {}", e);
-        }
+        // 核心分支 2：实时在线拉取模式 (未缓存真节点)
+        info!("🌐 [实时在线拉取] 未缓存真节点快照，向原 URL 实时请求: {} -> {}", key, item.url);
+        return process_subscription(headers, &item.url, force_refresh, Some(&key)).await;
     }
 
-    fallback_info.to_string()
+    // 2. 数据库中未找到该 key 的情况：
+    // 仅当 query 是以 http:// 或 https:// 开头的合法 URL 时，才允许快捷带参注册
+    let decoded_query = urlencoding::decode(query).unwrap_or(std::borrow::Cow::Borrowed(query));
+    if decoded_query.starts_with("http://") || decoded_query.starts_with("https://") {
+        info!("未登记的 key，执行快捷带参注册: {} -> {}", key, decoded_query);
+        registry::register(&key, &decoded_query).await;
+        return process_subscription(headers, &decoded_query, force_refresh, Some(&key)).await;
+    }
+
+    // 既没有该 key，query 也不是合法 URL，规范返回 404
+    warn!("未找到登记的订阅: {}", key);
+    (
+        StatusCode::NOT_FOUND,
+        format!("404 Not Found: 未找到登记的订阅短链 [{}]，请先在控制台中添加。", key),
+    ).into_response()
 }
 
 async fn process_subscription(
