@@ -650,12 +650,16 @@ pub async fn fetch_local_handler(
     }
 }
 
-/// 优先从 server/web/TwemojiCountryFlags.woff2 读取静态字体文件
+const BUILTIN_INDEX_HTML: &str = include_str!("../../web/index.html");
+const BUILTIN_FONT_BYTES: &[u8] = include_bytes!("../../web/TwemojiCountryFlags.woff2");
+
+/// 优先从 server/web/TwemojiCountryFlags.woff2 读取静态字体文件，无磁盘文件时回退到内置资源 (保证 Vercel 绝对不报 404)
 pub async fn font_handler() -> impl IntoResponse {
     let candidates = [
         "server/web/TwemojiCountryFlags.woff2",
         "web/TwemojiCountryFlags.woff2",
         "../web/TwemojiCountryFlags.woff2",
+        "../../web/TwemojiCountryFlags.woff2",
     ];
 
     for path in &candidates {
@@ -670,15 +674,23 @@ pub async fn font_handler() -> impl IntoResponse {
         }
     }
 
-    (StatusCode::NOT_FOUND, "404 Not Found: 静态字体文件缺失").into_response()
+    // Vercel Serverless 容器环境保底直发
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2"),
+            (header::CACHE_CONTROL, "public, max-age=31536000, immutable"),
+        ],
+        BUILTIN_FONT_BYTES.to_vec(),
+    ).into_response()
 }
 
-/// 优先从 server/web/index.html 读取静态 HTML，热更新立即可见
+/// 优先从 server/web/index.html 读取静态 HTML（支持热修改），无磁盘文件时回退到内置资源 (保证 Vercel 绝对不报 404)
 pub async fn page_handler() -> impl IntoResponse {
     let candidates = [
         "server/web/index.html",
         "web/index.html",
         "../web/index.html",
+        "../../web/index.html",
     ];
 
     for path in &candidates {
@@ -690,8 +702,9 @@ pub async fn page_handler() -> impl IntoResponse {
         }
     }
 
+    // Vercel Serverless 容器环境保底直发
     (
-        StatusCode::NOT_FOUND,
-        "404 Not Found: server/web/index.html 缺失，请检查 web 目录静态资源。",
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        BUILTIN_INDEX_HTML.to_string(),
     ).into_response()
 }
