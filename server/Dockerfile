@@ -13,5 +13,8 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 WORKDIR /app
 # 从 builder 拷贝二进制文件
 COPY --from=builder /app/target/release/subconverter-core /app/sub-proxy
+# 从 builder 拷贝前端静态资源与分流配置文件
+COPY --from=builder /app/web /app/web
+COPY --from=builder /app/config /app/config
 # 运行
 CMD ["./sub-proxy"]

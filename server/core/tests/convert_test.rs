@@ -88,6 +88,7 @@ proxies:
 
 #[tokio::test]
 async fn test_router_endpoints() {
+    let _ = subconverter_core::env::init();
     let app = router();
 
     // 1. GET /
@@ -96,13 +97,20 @@ async fn test_router_endpoints() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    let bytes = to_bytes(res.into_body(), 1024).await.unwrap();
+    let bytes = to_bytes(res.into_body(), 64 * 1024).await.unwrap();
     let body = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(body.contains("Server2"));
+    assert!(body.contains("Subconverter"));
 
     // 2. GET /favicon.ico
     let res = app.clone()
         .oneshot(Request::builder().uri("/favicon.ico").body(axum::body::Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    // 2.1 GET /TwemojiCountryFlags.woff2
+    let res = app.clone()
+        .oneshot(Request::builder().uri("/TwemojiCountryFlags.woff2").body(axum::body::Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
@@ -131,6 +139,20 @@ async fn test_router_endpoints() {
     // 6. GET /refresh 主动刷新规则测试 返回 200
     let res = app.clone()
         .oneshot(Request::builder().uri("/refresh").body(axum::body::Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    // 7. GET /admin 不再是控制台路由，而是作为正常的 key 供客户端订阅 (未注册报 404)
+    let res = app.clone()
+        .oneshot(Request::builder().uri("/admin").body(axum::body::Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+
+    // 8. GET /api/admin/info 返回 200 JSON
+    let res = app.clone()
+        .oneshot(Request::builder().uri("/api/admin/info").body(axum::body::Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);

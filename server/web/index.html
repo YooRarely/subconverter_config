@@ -1,0 +1,1158 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subconverter 订阅转换管理平台</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+  <style>
+    @font-face {
+      font-family: "Twemoji Country Flags";
+      src: url("/TwemojiCountryFlags.woff2") format("woff2");
+      unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E007F;
+      font-display: swap;
+    }
+    :root {
+      --bg: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0ea5e9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Twemoji Country Flags", "Segoe UI", Roboto, "Segoe UI Emoji", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+      line-height: 1.5;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand h1 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+    .status-badge {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-green { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--primary); border: 1px solid rgba(56, 189, 248, 0.4); }
+    
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.88rem; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+    input[type="text"], input[type="password"], textarea, select {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+    input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+    
+    .mode-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .mode-option {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(15, 23, 42, 0.5);
+    }
+    .mode-option.active {
+      border-color: var(--primary);
+      background: rgba(56, 189, 248, 0.1);
+    }
+    .mode-option h4 { font-size: 0.95rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .mode-option p { font-size: 0.8rem; color: var(--text-muted); }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #0f172a; }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid var(--border); }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+    .btn-success { background: var(--success); color: #0f172a; }
+    .btn-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.3); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    
+    .actions-bar { display: flex; gap: 10px; align-items: center; }
+    
+    .sub-card {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sub-card:hover {
+      border-color: rgba(56, 189, 248, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.4), 0 0 16px rgba(56, 189, 248, 0.1);
+    }
+    .sub-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .sub-title-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sub-title-box h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+    .sub-url-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.5);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      word-break: break-all;
+    }
+    .sub-url-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: monospace;
+      color: #94a3b8;
+    }
+    .sub-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .footer-left {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .footer-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    .badge {
+      font-size: 0.76rem;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .badge-cached {
+      background: rgba(168, 85, 247, 0.18);
+      color: #d8b4fe;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+    }
+    .badge-live {
+      background: rgba(56, 189, 248, 0.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .badge-traffic {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    
+    .tag {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .tag-blue { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
+    .tag-purple { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+
+    .group-box {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+    .group-box:hover {
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+    .group-box-header {
+      padding: 12px 18px;
+      background: rgba(30, 41, 59, 0.45);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .group-box-header:hover {
+      background: rgba(30, 41, 59, 0.75);
+    }
+    .group-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #fff;
+    }
+    .group-arrow {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+    .group-box.collapsed .group-arrow {
+      transform: rotate(-90deg);
+    }
+    .group-box.collapsed .group-nodes-grid {
+      display: none;
+    }
+    .group-nodes-grid {
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .node-item {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .node-item:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(30, 41, 59, 0.5);
+      transform: translateY(-1px);
+    }
+    .node-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .node-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #f1f5f9;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .node-addr {
+      font-family: Consolas, monospace;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #0f172a;
+      border-color: var(--primary);
+    }
+    
+    .notice {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .notice-info { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); color: #bae6fd; }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-content {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 720px;
+      width: 100%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+    .close-btn:hover { color: #fff; }
+    
+    @media (max-width: 640px) {
+      .mode-selector { grid-template-columns: 1fr; }
+      .sub-item { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .sub-actions { width: 100%; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <span style="font-size: 2rem;">🚀</span>
+        <div>
+          <h1>Subconverter 控制台</h1>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">独立转换引擎 · 节点无损重构</p>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="backend-status" class="status-badge badge-green">加载中...</span>
+        <button class="btn btn-secondary btn-sm" onclick="triggerRefreshRules()">🔄 刷新私人规则</button>
+        <button class="btn btn-secondary btn-sm" id="logout-btn" style="display: none;" onclick="doLogout()">🚪 退出</button>
+      </div>
+    </header>
+
+    <!-- 登录锁屏卡片 (未登录时居中展现，阻断一切数据泄漏) -->
+    <div id="login-card" class="card" style="display: none; max-width: 440px; margin: 60px auto; text-align: center; padding: 36px 28px;">
+      <span style="font-size: 3rem;">🔐</span>
+      <h2 style="font-size: 1.4rem; font-weight: 700; margin: 12px 0 6px;">管理员安全登录</h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">本控制台已开启安全访问保护，请输入管理密码解锁：</p>
+      <div class="form-group" style="text-align: left; margin-bottom: 16px;">
+        <input type="password" id="admin-pwd-input" placeholder="请输入 ADMIN_PASSWORD..." onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="doLogin()">🚀 解锁并进入控制台</button>
+      <p id="login-msg" style="font-size: 0.88rem; color: #f87171; margin-top: 14px; min-height: 1.2em;"></p>
+    </div>
+
+    <!-- 主控制台业务面板 (登录通过后才渲染展示) -->
+    <div id="main-panel">
+      <!-- 添加 / 配置订阅卡片 -->
+      <div class="card">
+        <div class="card-title">✨ 添加 / 更新订阅短链</div>
+
+        <div class="form-group">
+          <label>短链 Key</label>
+          <input type="text" id="sub-key" placeholder="输入客户端调用的短链名称，例如: XSUS">
+        </div>
+
+        <div class="form-group">
+          <label>机场订阅原始 URL</label>
+          <input type="text" id="sub-url" placeholder="https://..." onblur="autoCleanUrlInput()">
+        </div>
+
+        <div class="actions-bar" style="margin-top: 24px; gap: 12px; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="add-btn" onclick="submitAdd()">➕ 添加订阅</button>
+          <span id="add-msg" style="font-size: 0.9rem; font-weight: 500;"></span>
+        </div>
+      </div>
+
+      <!-- 已保存的订阅列表 -->
+      <div class="card">
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>📋 已配置的订阅列表</span>
+          </div>
+          <span id="list-msg" style="font-size: 0.88rem; font-weight: 500;"></span>
+        </div>
+        <div id="subs-list">
+          <p style="color: var(--text-muted); font-size: 0.9rem;">加载中...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 订阅文件查看详情页面 (包含策略组/节点归类视图与原始配置Tab) -->
+    <div id="detail-panel" style="display: none;">
+      <div class="card">
+        <!-- 顶部操作栏 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button class="btn btn-secondary btn-sm" onclick="backToList()">⬅️ 返回列表</button>
+            <h2 id="detail-title" style="font-size: 1.25rem; font-weight: 700; color: #fff;">📄 策略组与节点视图</h2>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="tab-btn active" id="tab-btn-groups" onclick="switchDetailTab('groups')">🗂️ 策略组视图</button>
+            <button class="tab-btn" id="tab-btn-yaml" onclick="switchDetailTab('yaml')">📝 原始 YAML</button>
+            <button class="btn btn-primary btn-sm" id="detail-copy-btn" onclick="copyDetailContent()">📋 复制配置内容</button>
+          </div>
+        </div>
+
+        <!-- 概览状态与搜索条 -->
+        <div id="detail-meta-box" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: rgba(15, 23, 42, 0.4); padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05);">
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <span id="detail-badge" class="badge"></span>
+            <span id="detail-groups-count" class="badge badge-cached"></span>
+            <span id="detail-info-text" style="font-size: 0.82rem; color: var(--text-muted);"></span>
+          </div>
+          <div id="detail-search-wrapper" style="min-width: 240px;">
+            <input type="text" id="detail-search-input" placeholder="🔍 搜索策略组或节点..." style="padding: 6px 12px; font-size: 0.85rem;" oninput="filterGroupNodes()">
+          </div>
+        </div>
+
+        <!-- 视图 1：策略组与归属节点网格 -->
+        <div id="groups-view-container">
+          <div id="groups-list">
+            <!-- 动态注入策略组和节点 -->
+          </div>
+        </div>
+
+        <!-- 视图 2：原始 YAML 查看器 -->
+        <div id="yaml-view-container" style="display: none;">
+          <textarea id="detail-textarea" rows="22" readonly style="font-family: Consolas, 'Fira Code', Monaco, monospace; font-size: 0.85rem; line-height: 1.45; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 16px; color: #e2e8f0; width: 100%; white-space: pre; word-break: normal; overflow-x: auto;"></textarea>
+        </div>
+
+        <!-- 空状态卡片 -->
+        <div id="detail-empty-box" style="display: none; padding: 48px 16px; text-align: center; background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(255, 255, 255, 0.15); border-radius: 10px;">
+          <span style="font-size: 3rem;">📭</span>
+          <h3 style="font-size: 1.15rem; margin: 12px 0 6px; color: #cbd5e1;">当前订阅在服务器中暂无缓存文件</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 16px;">
+            本页面仅读取服务器当前已存在的订阅文件缓存（绝不向机场发起任何网络请求）。<br>
+            您可以在列表中点击「🔄 在线探测刷新」或「⚡ 缓存为真节点快照」生成缓存。
+          </p>
+          <button class="btn btn-primary btn-sm" onclick="backToList()">⬅️ 返回列表</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let authRequired = false;
+
+    function getToken() {
+      return localStorage.getItem('sub_admin_token') || '';
+    }
+
+    function getAuthHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      const token = getToken();
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+        headers['X-Admin-Token'] = token;
+      }
+      return headers;
+    }
+
+    async function init() {
+      try {
+        const res = await fetch('/api/admin/info');
+        const info = await res.json();
+        
+        const badge = document.getElementById('backend-status');
+        if (info.redis_connected) {
+          badge.className = 'status-badge badge-green';
+          badge.innerText = '● Redis 已连接 (云端持久化)';
+        } else {
+          badge.className = 'status-badge badge-blue';
+          badge.innerText = '● 本地内存模式';
+        }
+
+        authRequired = info.auth_required;
+        const currentToken = getToken();
+
+        if (authRequired) {
+          if (!currentToken) {
+            // 需要认证且未登录：展示居中锁屏，彻底隐藏主控制台
+            showLoginView();
+            return;
+          } else {
+            showMainView();
+          }
+        } else {
+          showMainView();
+        }
+
+        await loadList();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function showLoginView() {
+      document.getElementById('login-card').style.display = 'block';
+      document.getElementById('main-panel').style.display = 'none';
+      document.getElementById('logout-btn').style.display = 'none';
+      setTimeout(() => {
+        const inp = document.getElementById('admin-pwd-input');
+        if (inp) inp.focus();
+      }, 100);
+    }
+
+    function showMainView() {
+      document.getElementById('login-card').style.display = 'none';
+      document.getElementById('main-panel').style.display = 'block';
+      if (authRequired) {
+        document.getElementById('logout-btn').style.display = 'inline-flex';
+      }
+    }
+
+    async function doLogin() {
+      const pwd = document.getElementById('admin-pwd-input').value.trim();
+      const loginMsg = document.getElementById('login-msg');
+      if (!pwd) {
+        loginMsg.innerText = '请输入管理密码';
+        return;
+      }
+      loginMsg.innerText = '正在验证...';
+      loginMsg.style.color = '#38bdf8';
+
+      try {
+        const resp = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          localStorage.setItem('sub_admin_token', data.token || pwd);
+          loginMsg.innerText = '';
+          showMainView();
+          await loadList();
+        } else {
+          loginMsg.innerText = '❌ ' + data.message;
+          loginMsg.style.color = '#f87171';
+        }
+      } catch (e) {
+        loginMsg.innerText = '验证请求异常: ' + e;
+        loginMsg.style.color = '#f87171';
+      }
+    }
+
+    function doLogout() {
+      localStorage.removeItem('sub_admin_token');
+      document.getElementById('admin-pwd-input').value = '';
+      showLoginView();
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes <= 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+    }
+
+    function parseTrafficInfo(infoStr) {
+      if (!infoStr) return null;
+      let upload = 0, download = 0, total = 0;
+      infoStr.split(';').forEach(p => {
+        const kv = p.split('=').map(s => s.trim());
+        if (kv.length === 2) {
+          if (kv[0] === 'upload') upload = parseInt(kv[1]) || 0;
+          if (kv[0] === 'download') download = parseInt(kv[1]) || 0;
+          if (kv[0] === 'total') total = parseInt(kv[1]) || 0;
+        }
+      });
+      if (total === 0) return null;
+      const used = upload + download;
+      return {
+        usedStr: formatBytes(used),
+        totalStr: formatBytes(total),
+        percent: Math.min(100, Math.round((used / total) * 100))
+      };
+    }
+
+    async function loadList() {
+      const listEl = document.getElementById('subs-list');
+      try {
+        const res = await fetch('/api/admin/list', { headers: getAuthHeaders() });
+        if (res.status === 401) {
+          doLogout();
+          const loginMsg = document.getElementById('login-msg');
+          if (loginMsg) loginMsg.innerText = '⚠️ 凭证无效或未授权，请输入密码解锁';
+          return;
+        }
+        const data = await res.json();
+        if (data.length === 0) {
+          listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">暂无已配置的订阅，可在上方新建。</p>';
+          return;
+        }
+
+        let html = '';
+        data.forEach(item => {
+          const isSnapshot = item.is_manual_cached && item.node_count > 0;
+          let statusBadge = '';
+          let cacheActionBtn = '';
+
+          if (isSnapshot) {
+            statusBadge = '<span class="badge badge-cached">⚡ 真节点快照 · ' + item.node_count + ' 个节点 (直接下发)</span>';
+            cacheActionBtn = `
+              <button class="btn btn-secondary btn-sm" onclick="fetchAndCache('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">🔄 更新快照</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearCache('${escapeHtml(item.key)}')">🧹 移除快照 (转实时)</button>
+            `;
+          } else {
+            const hasError = item.last_status && item.last_status.startsWith('error');
+            if (hasError) {
+              statusBadge = `<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);" title="${escapeHtml(item.last_status)}">❌ 实时拉取异常 (${escapeHtml(item.last_status)})</span>`;
+            } else if (item.node_count > 0) {
+              statusBadge = '<span class="badge badge-live">🌐 实时在线拉取 · ' + item.node_count + ' 节点 (正常)</span>';
+            } else {
+              statusBadge = '<span class="badge badge-live">🌐 实时在线拉取 (待首次拉取)</span>';
+            }
+            cacheActionBtn = `
+              <button class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); color: #fff;" onclick="fetchAndCache('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">⚡ 缓存为真节点快照</button>
+              <button class="btn btn-secondary btn-sm" onclick="probeLive('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">🔄 在线探测刷新</button>
+            `;
+          }
+          
+          // 解析并展示流量信息
+          let trafficBadge = '';
+          const tf = parseTrafficInfo(item.user_info);
+          if (tf) {
+            trafficBadge = `<span class="badge badge-traffic" title="已用流量 / 总配额">💾 流量: ${tf.usedStr} / ${tf.totalStr} (${tf.percent}%)</span>`;
+          }
+
+          const timeStr = item.updated_at ? new Date(item.updated_at * 1000).toLocaleString() : '初始添加';
+          const subUrl = window.location.origin + '/' + encodeURIComponent(item.key);
+
+          html += `
+            <div class="sub-card">
+              <div class="sub-card-header">
+                <div class="sub-title-box">
+                  <h3 style="cursor: pointer; text-decoration: underline; text-underline-offset: 4px;" title="点击进入查看订阅文件" onclick="viewSubscriptionDetail('${escapeHtml(item.key)}')">${escapeHtml(item.key)}</h3>
+                  ${statusBadge}
+                </div>
+                ${trafficBadge}
+              </div>
+
+              <div class="sub-url-box">
+                <span style="font-size: 1rem;">🔗</span>
+                <span class="sub-url-text" title="${escapeHtml(item.url)}">${escapeHtml(item.url || '未提供原始链接')}</span>
+                <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem;" onclick="copyText('${escapeHtml(item.url)}')">复制原链</button>
+              </div>
+
+              <div class="sub-card-footer">
+                <div class="footer-left">
+                  ${cacheActionBtn}
+                  <span style="font-size: 0.78rem; color: var(--text-muted); margin-left: 4px;">🕒 ${timeStr}</span>
+                </div>
+                <div class="footer-right">
+                  <button class="btn btn-secondary btn-sm" onclick="viewSubscriptionDetail('${escapeHtml(item.key)}')">📄 查看文件</button>
+                  <button class="btn btn-primary btn-sm" onclick="copyText('${subUrl}')">📋 复制订阅短链</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteSub('${item.key}')">🗑️ 删除</button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        listEl.innerHTML = html;
+      } catch (e) {
+        listEl.innerHTML = '<p style="color: #f87171;">加载失败: ' + e + '</p>';
+      }
+    }
+
+    function autoCleanUrlInput() {
+      const input = document.getElementById('sub-url');
+      let val = input.value.trim();
+      if (val.includes('%3A%2F%2F') || val.includes('%3a%2f%2f')) {
+        try {
+          val = decodeURIComponent(val);
+          input.value = val;
+        } catch (_) {}
+      }
+    }
+
+    // 表单单一职责：仅负责添加 Key -> URL 基础映射
+    async function submitAdd() {
+      autoCleanUrlInput();
+      const key = document.getElementById('sub-key').value.trim();
+      const url = document.getElementById('sub-url').value.trim();
+      const msg = document.getElementById('add-msg');
+      const btn = document.getElementById('add-btn');
+
+      if (!key) return alert('请输入短链 Key！');
+      if (!url) return alert('请输入机场订阅 URL！');
+
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+
+      try {
+        msg.innerText = '⏳ 正在保存配置...';
+        msg.style.color = '#38bdf8';
+
+        const saveRes = await fetch('/api/admin/save', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ key, url, raw_yaml: null })
+        });
+        const saveData = await saveRes.json();
+        if (!saveData.success) {
+          msg.innerText = '❌ 保存失败: ' + saveData.message;
+          msg.style.color = '#f87171';
+          return;
+        }
+
+        msg.innerText = '✅ 订阅 [' + key + '] 添加成功！可在下方列表中按需一键缓存真节点。';
+        msg.style.color = '#10b981';
+        document.getElementById('sub-key').value = '';
+        document.getElementById('sub-url').value = '';
+        await loadList();
+      } catch (e) {
+        msg.innerText = '❌ 发生异常: ' + e;
+        msg.style.color = '#f87171';
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    }
+
+    // 为列表中的条目拉取真节点并写入缓存（状态直接显示在下方列表面板内）
+    async function fetchAndCache(key, url) {
+      if (!url) return alert('该订阅未记录机场 URL，无法抓取');
+      const listMsg = document.getElementById('list-msg');
+      listMsg.innerText = '⏳ 正在为 [' + key + '] 抓取真节点并更新缓存...';
+      listMsg.style.color = '#38bdf8';
+
+      try {
+        const fetchRes = await fetch('/api/admin/fetch_local', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ url })
+        });
+        const fetchData = await fetchRes.json();
+        if (!fetchData.success) {
+          listMsg.innerText = '❌ [' + key + '] 抓取失败: ' + fetchData.message;
+          listMsg.style.color = '#f87171';
+          alert('抓取失败: ' + fetchData.message);
+          return;
+        }
+
+        const updateRes = await fetch('/api/admin/save', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            key,
+            url,
+            raw_yaml: fetchData.cleaned_yaml,
+            user_info: fetchData.user_info,
+            is_manual_cached: true
+          })
+        });
+        const updateData = await updateRes.json();
+        if (updateData.success) {
+          listMsg.innerText = '✅ [' + key + '] 真节点快照更新成功！已缓存 ' + fetchData.node_count + ' 个真节点。';
+          listMsg.style.color = '#10b981';
+          await loadList();
+        } else {
+          listMsg.innerText = '❌ 快照更新失败: ' + updateData.message;
+          listMsg.style.color = '#f87171';
+        }
+      } catch (e) {
+        listMsg.innerText = '❌ 发生异常: ' + e;
+        listMsg.style.color = '#f87171';
+      }
+    }
+
+    // 在线探测并刷新状态看板（不缓存/冻结 YAML，依然保持实时在线模式）
+    async function probeLive(key, url) {
+      if (!url) return alert('该订阅未记录机场 URL');
+      const listMsg = document.getElementById('list-msg');
+      listMsg.innerText = '⏳ 正在为 [' + key + '] 发起在线健康探测并同步看板...';
+      listMsg.style.color = '#38bdf8';
+
+      try {
+        const res = await fetch('/api/admin/probe_live', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ key, url })
+        });
+        const data = await res.json();
+        if (data.success) {
+          listMsg.innerText = '✅ ' + data.message;
+          listMsg.style.color = '#10b981';
+          await loadList();
+        } else {
+          listMsg.innerText = '❌ 探测失败: ' + data.message;
+          listMsg.style.color = '#f87171';
+          await loadList();
+        }
+      } catch (e) {
+        listMsg.innerText = '❌ 探测异常: ' + e;
+        listMsg.style.color = '#f87171';
+      }
+    }
+
+    // 清空指定订阅的节点缓存（状态直接显示在下方列表面板内）
+    async function clearCache(key) {
+      if (!confirm('确定要清空订阅 [' + key + '] 的真节点缓存吗？清空后客户端请求将变为实时在线拉取。')) return;
+      const listMsg = document.getElementById('list-msg');
+      listMsg.innerText = '⏳ 正在清空 [' + key + '] 的缓存...';
+      listMsg.style.color = '#38bdf8';
+
+      try {
+        const res = await fetch('/api/admin/clear_cache', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ key })
+        });
+        const data = await res.json();
+        if (data.success) {
+          listMsg.innerText = '✅ [' + key + '] 的真节点缓存已清空，变更为实时在线拉取状态';
+          listMsg.style.color = '#10b981';
+          await loadList();
+        } else {
+          listMsg.innerText = '❌ 清空失败: ' + data.message;
+          listMsg.style.color = '#f87171';
+        }
+      } catch (e) {
+        listMsg.innerText = '❌ 清空异常: ' + e;
+        listMsg.style.color = '#f87171';
+      }
+    }
+
+    async function deleteSub(key) {
+      if (!confirm('确定要删除订阅 [' + key + '] 吗？')) return;
+      const listMsg = document.getElementById('list-msg');
+      try {
+        await fetch('/api/admin/delete', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ key })
+        });
+        listMsg.innerText = '✅ 订阅 [' + key + '] 已删除';
+        listMsg.style.color = '#10b981';
+        await loadList();
+      } catch (e) {
+        alert('删除失败: ' + e);
+      }
+    }
+
+    async function triggerRefreshRules() {
+      try {
+        const res = await fetch('/refresh');
+        const text = await res.text();
+        alert(text);
+      } catch (e) {
+        alert('刷新规则失败: ' + e);
+      }
+    }
+
+    function copyText(txt) {
+      navigator.clipboard.writeText(txt).then(() => {
+        const listMsg = document.getElementById('list-msg');
+        listMsg.innerText = '✅ 已成功复制到剪贴板！';
+        listMsg.style.color = '#10b981';
+        setTimeout(() => { if (listMsg.innerText.includes('剪贴板')) listMsg.innerText = ''; }, 3000);
+      }).catch(e => {
+        prompt('请手动复制链接:', txt);
+      });
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    let currentDetailData = null;
+    let currentDetailTab = 'groups';
+
+    async function viewSubscriptionDetail(key) {
+      document.getElementById('main-panel').style.display = 'none';
+      document.getElementById('detail-panel').style.display = 'block';
+      
+      document.getElementById('detail-title').innerText = '📄 订阅 [' + key + '] 的策略组与节点视图';
+      document.getElementById('detail-empty-box').style.display = 'none';
+      document.getElementById('groups-view-container').style.display = 'block';
+      document.getElementById('yaml-view-container').style.display = 'none';
+      document.getElementById('groups-list').innerHTML = '<p style="color: var(--text-muted); padding: 16px;">正在从服务器纯读取缓存内容并分类重构 (0 外部请求)...</p>';
+      document.getElementById('detail-badge').innerText = '读取中...';
+      document.getElementById('detail-badge').className = 'badge';
+      document.getElementById('detail-groups-count').style.display = 'none';
+      document.getElementById('detail-info-text').innerText = '';
+      document.getElementById('detail-search-input').value = '';
+
+      switchDetailTab('groups');
+
+      try {
+        const res = await fetch('/api/admin/subscription_content?key=' + encodeURIComponent(key), {
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        currentDetailData = data;
+
+        if (data.success && data.has_content) {
+          document.getElementById('detail-textarea').value = data.content;
+          document.getElementById('detail-badge').className = data.is_manual_cached ? 'badge badge-cached' : 'badge badge-live';
+          document.getElementById('detail-badge').innerText = data.is_manual_cached ? '⚡ 真节点快照' : '🌐 在线最新缓存';
+          
+          document.getElementById('detail-groups-count').style.display = 'inline-flex';
+          document.getElementById('detail-groups-count').innerText = '📊 ' + (data.groups ? data.groups.length : 0) + ' 个策略组 · ' + data.node_count + ' 个节点';
+          document.getElementById('detail-info-text').innerText = '从服务器缓存极速重构，未发起任何外部网络连接。';
+          document.getElementById('detail-copy-btn').style.display = 'inline-flex';
+
+          renderGroupNodesView(data.groups, data.proxies);
+        } else {
+          document.getElementById('groups-view-container').style.display = 'none';
+          document.getElementById('yaml-view-container').style.display = 'none';
+          document.getElementById('detail-empty-box').style.display = 'block';
+          document.getElementById('detail-badge').className = 'badge badge-live';
+          document.getElementById('detail-badge').innerText = '🌐 无本地缓存文件';
+          document.getElementById('detail-groups-count').style.display = 'none';
+          document.getElementById('detail-info-text').innerText = data.message || '暂无内容';
+          document.getElementById('detail-copy-btn').style.display = 'none';
+        }
+      } catch (err) {
+        document.getElementById('groups-list').innerHTML = '<p style="color: #f87171; padding: 16px;">读取失败: ' + err + '</p>';
+      }
+    }
+
+    // 渲染策略组卡片及组内节点
+    function renderGroupNodesView(groups, proxies) {
+      const container = document.getElementById('groups-list');
+      if (!groups || groups.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); padding: 16px;">配置中未定义有效的 proxy-groups 策略组。</p>';
+        return;
+      }
+
+      // 建立底层节点名称查找字典
+      const nodeMap = {};
+      if (proxies) {
+        proxies.forEach(p => { nodeMap[p.name] = p; });
+      }
+
+      let html = '';
+      groups.forEach((g, gIdx) => {
+        let typeBadge = '';
+        if (g.group_type === 'select') {
+          typeBadge = '<span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3);">👉 select 手动选择 (固定出口防风控)</span>';
+        } else if (g.group_type === 'url-test') {
+          typeBadge = '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3);">⚡ url-test 自动测速</span>';
+        } else {
+          typeBadge = `<span class="badge badge-cached">${escapeHtml(g.group_type)}</span>`;
+        }
+
+        let nodesHtml = '';
+        if (g.proxies && g.proxies.length > 0) {
+          g.proxies.forEach(name => {
+            const node = nodeMap[name];
+            if (node) {
+              // 属于底层真实节点
+              nodesHtml += `
+                <div class="node-item" data-name="${escapeHtml(name)}">
+                  <div class="node-main">
+                    <span class="node-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                    <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #d8b4fe; font-size: 0.72rem;">${escapeHtml(node.proxy_type)}</span>
+                  </div>
+                  <div class="node-addr" title="${escapeHtml(node.server)}:${node.port}">🌐 ${escapeHtml(node.server)}:${node.port}</div>
+                </div>
+              `;
+            } else {
+              // 属于引用的策略组（如 🚀 节点选择 引用了 🇭🇰 香港）
+              nodesHtml += `
+                <div class="node-item" data-name="${escapeHtml(name)}" style="border-left: 3px solid #38bdf8;">
+                  <div class="node-main">
+                    <span class="node-name" title="${escapeHtml(name)}">🧭 ${escapeHtml(name)}</span>
+                    <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #7dd3fc; font-size: 0.72rem;">子策略组</span>
+                  </div>
+                  <div class="node-addr">嵌套策略组路由</div>
+                </div>
+              `;
+            }
+          });
+        } else {
+          nodesHtml = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 10px;">该组暂无节点</p>';
+        }
+
+        html += `
+          <div class="group-box" id="group-box-${gIdx}" data-group-name="${escapeHtml(g.name)}">
+            <div class="group-box-header" onclick="toggleGroupCollapse(this)">
+              <div class="group-title">
+                <span class="group-arrow">▼</span>
+                <span>${escapeHtml(g.name)}</span>
+                ${typeBadge}
+              </div>
+              <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 500;">${g.proxies ? g.proxies.length : 0} 个目标</span>
+            </div>
+            <div class="group-nodes-grid">
+              ${nodesHtml}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function toggleGroupCollapse(headerEl) {
+      const box = headerEl.closest('.group-box');
+      if (box) box.classList.toggle('collapsed');
+    }
+
+    function switchDetailTab(tab) {
+      currentDetailTab = tab;
+      const btnGroups = document.getElementById('tab-btn-groups');
+      const btnYaml = document.getElementById('tab-btn-yaml');
+      const viewGroups = document.getElementById('groups-view-container');
+      const viewYaml = document.getElementById('yaml-view-container');
+      const searchWrapper = document.getElementById('detail-search-wrapper');
+
+      if (tab === 'groups') {
+        btnGroups.className = 'tab-btn active';
+        btnYaml.className = 'tab-btn';
+        viewGroups.style.display = 'block';
+        viewYaml.style.display = 'none';
+        searchWrapper.style.display = 'block';
+      } else {
+        btnGroups.className = 'tab-btn';
+        btnYaml.className = 'tab-btn active';
+        viewGroups.style.display = 'none';
+        viewYaml.style.display = 'block';
+        searchWrapper.style.display = 'none';
+      }
+    }
+
+    function filterGroupNodes() {
+      const q = document.getElementById('detail-search-input').value.trim().toLowerCase();
+      const boxes = document.querySelectorAll('.group-box');
+      
+      boxes.forEach(box => {
+        const groupName = (box.getAttribute('data-group-name') || '').toLowerCase();
+        const nodes = box.querySelectorAll('.node-item');
+        let hasMatchNode = false;
+
+        nodes.forEach(node => {
+          const nodeName = (node.getAttribute('data-name') || '').toLowerCase();
+          if (!q || nodeName.includes(q) || groupName.includes(q)) {
+            node.style.display = 'flex';
+            hasMatchNode = true;
+          } else {
+            node.style.display = 'none';
+          }
+        });
+
+        if (!q || groupName.includes(q) || hasMatchNode) {
+          box.style.display = 'block';
+        } else {
+          box.style.display = 'none';
+        }
+      });
+    }
+
+    function backToList() {
+      document.getElementById('detail-panel').style.display = 'none';
+      document.getElementById('main-panel').style.display = 'block';
+    }
+
+    function copyDetailContent() {
+      if (currentDetailData && currentDetailData.content) {
+        copyText(currentDetailData.content);
+        alert('已复制完整订阅配置 YAML 到剪贴板！');
+      } else {
+        alert('暂无配置内容可复制');
+      }
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>

@@ -64,23 +64,7 @@ impl Converter {
             );
             country_group.insert(
                 Value::String("type".to_string()),
-                Value::String("url-test".to_string()),
-            );
-            country_group.insert(
-                Value::String("url".to_string()),
-                Value::String("http://www.gstatic.com/generate_204".to_string()),
-            );
-            country_group.insert(
-                Value::String("interval".to_string()),
-                Value::Number(300.into()),
-            );
-            country_group.insert(
-                Value::String("tolerance".to_string()),
-                Value::Number(50.into()),
-            );
-            country_group.insert(
-                Value::String("lazy".to_string()),
-                Value::Bool(true),
+                Value::String("select".to_string()),
             );
 
             let node_seq: Vec<Value> = nodes

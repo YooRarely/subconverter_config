@@ -3,8 +3,8 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{info, warn};
 
-const DEFAULT_EMOJI_TXT: &str = include_str!("../config/emoji.txt");
-const DEFAULT_EMOJI_TOML: &str = include_str!("../config/emoji.toml");
+const DEFAULT_EMOJI_TXT: &str = include_str!("../../config/emoji.txt");
+const DEFAULT_EMOJI_TOML: &str = include_str!("../../config/emoji.toml");
 
 #[derive(Debug, Deserialize)]
 struct EmojiTomlConfig {
@@ -179,9 +179,9 @@ impl Classifier {
     fn load_config_file(file_name: &str, default_val: &'static str) -> String {
         let candidates = [
             format!("config/{}", file_name),
-            format!("core/config/{}", file_name),
+            format!("server/config/{}", file_name),
             format!("../config/{}", file_name),
-            format!("../core/config/{}", file_name),
+            format!("../../config/{}", file_name),
         ];
         for p in &candidates {
             if let Ok(c) = std::fs::read_to_string(p) {

@@ -1,0 +1,44 @@
+# Subconverter 分流规则链顺序配置
+# 规则将按从上到下的顺序依次匹配并执行，修改后在控制台点击「刷新私人规则」或重启即可生效。
+
+# 1. 私人直连规则（最高优先级）
+[[rulesets]]
+group = "DIRECT"
+ruleset = "rules/China.list"
+remote = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list"
+
+# 2. 私人代理规则（最高优先级）
+[[rulesets]]
+group = "🚀 节点选择"
+ruleset = "rules/Global.list"
+remote = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/Global.list"
+
+# 3. 广告拦截规则
+[[rulesets]]
+group = "REJECT"
+ruleset = "rules/AdRule.list"
+
+# 4. 局域网直连规则
+[[rulesets]]
+group = "DIRECT"
+ruleset = "rules/LocalAreaNetwork.list"
+
+# 5. 核心分流：被墙国外常见域名 -> 走主选择组
+[[rulesets]]
+group = "🚀 节点选择"
+ruleset = "rules/Global.list"
+
+# 6. 国内常见直连域名 -> 走直连
+[[rulesets]]
+group = "DIRECT"
+ruleset = "rules/China.list"
+
+# 7. 内联原生规则：GEOIP 国内直连
+[[rulesets]]
+group = "DIRECT"
+ruleset = "[]GEOIP,CN,no-resolve"
+
+# 8. 终极兜底：未匹配目标走主选择组
+[[rulesets]]
+group = "🚀 节点选择"
+ruleset = "[]MATCH"

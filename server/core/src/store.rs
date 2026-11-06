@@ -1,6 +1,7 @@
 use moka::future::Cache;
 use redis::AsyncCommands;
 use redis::aio::ConnectionManager;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::OnceCell;
@@ -23,25 +24,44 @@ impl CacheManager {
         let mut redis = None;
         if let Ok(redis_url) = env::REDIS_CONNECTION_STRING.try_get() {
             let redis_url = redis_url.trim();
-            if !redis_url.is_empty() {
+            if redis_url.is_empty() {
+                info!("💡 未配置 REDIS_CONNECTION_STRING，已跳过 Redis 连接，秒级启动纯内存高速缓存");
+            } else {
                 match redis::Client::open(redis_url) {
-                    Ok(client) => match ConnectionManager::new(client).await {
-                        Ok(mgr) => {
-                            info!("成功连接到 Redis 缓存: {}", redis_url);
-                            redis = Some(mgr);
+                    Ok(client) => {
+                        info!("正在连接 Redis (1.5秒超时保护): {} ...", redis_url);
+                        match tokio::time::timeout(
+                            Duration::from_millis(1500),
+                            ConnectionManager::new(client),
+                        )
+                        .await
+                        {
+                            Ok(Ok(mgr)) => {
+                                info!("✅ 成功连接到 Redis 缓存: {}", redis_url);
+                                redis = Some(mgr);
+                            }
+                            Ok(Err(e)) => {
+                                warn!("⚠️ 连接 Redis 握手失败，自动回退到纯内存缓存: {:?}", e);
+                            }
+                            Err(_) => {
+                                warn!("⚠️ 连接 Redis 超过 1.5 秒超时，已自动跳过并回退到纯内存缓存");
+                            }
                         }
-                        Err(e) => {
-                            warn!("连接 Redis 失败，回退到纯内存缓存: {:?}", e);
-                        }
-                    },
+                    }
                     Err(e) => {
-                        warn!("Redis URL 解析失败，回退到纯内存缓存: {:?}", e);
+                        warn!("⚠️ Redis URL 解析失败，回退到纯内存缓存: {:?}", e);
                     }
                 }
             }
+        } else {
+            info!("💡 未提供 REDIS_CONNECTION_STRING，使用纯内存高速缓存");
         }
 
         Self { local, redis }
+    }
+
+    pub fn is_redis_connected(&self) -> bool {
+        self.redis.is_some()
     }
 
     pub async fn set(&self, key: &str, val: String, expire_secs: Option<u64>) {
@@ -90,6 +110,31 @@ impl CacheManager {
             let mut conn = mgr.clone();
             let _: Result<(), _> = conn.del(key).await;
         }
+    }
+
+    /// 获取包含指定前缀的所有键名
+    pub async fn get_keys_by_prefix(&self, prefix: &str) -> Vec<String> {
+        let mut keys_set = HashSet::new();
+
+        // 1. 扫描 Redis (如果有)
+        if let Some(ref mgr) = self.redis {
+            let mut conn = mgr.clone();
+            let query = format!("{}*", prefix);
+            if let Ok(redis_keys) = conn.keys::<_, Vec<String>>(query).await {
+                for k in redis_keys {
+                    keys_set.insert(k);
+                }
+            }
+        }
+
+        // 2. 扫描本地内存
+        for (k, _) in self.local.iter() {
+            if k.starts_with(prefix) {
+                keys_set.insert((*k).clone());
+            }
+        }
+
+        keys_set.into_iter().collect()
     }
 }
 

@@ -3,7 +3,7 @@ use axum::{
     body::Body,
     extract::{OriginalUri, Path},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use humansize::{BINARY, format_size};
 use hyper::{HeaderMap, StatusCode, header};
@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tracing::{error, info, warn};
 
+pub mod admin;
 pub mod classifier;
 pub mod converter;
 pub mod env;
@@ -20,7 +21,7 @@ pub mod store;
 
 static CONVERTER: OnceCell<Arc<converter::Converter>> = OnceCell::const_new();
 
-async fn get_converter() -> &'static Arc<converter::Converter> {
+pub(crate) async fn get_converter() -> &'static Arc<converter::Converter> {
     CONVERTER
         .get_or_init(|| async { Arc::new(converter::Converter::new()) })
         .await
@@ -28,18 +29,25 @@ async fn get_converter() -> &'static Arc<converter::Converter> {
 
 pub fn router() -> Router {
     Router::new()
-        .route("/", get(index))
+        .route("/", get(admin::page_handler))
         .route("/refresh", get(refresh_handler))
         .route("/url", get(url_handler))
         .route("/favicon.ico", get(ico))
+        .route("/TwemojiCountryFlags.woff2", get(admin::font_handler))
+        .route("/api/admin/info", get(admin::info_handler))
+        .route("/api/admin/list", get(admin::list_handler))
+        .route("/api/admin/save", post(admin::save_handler))
+        .route("/api/admin/delete", post(admin::delete_handler))
+        .route("/api/admin/clean_yaml", post(admin::clean_yaml_handler))
+        .route("/api/admin/clear_cache", post(admin::clear_cache_handler))
+        .route("/api/admin/fetch_local", post(admin::fetch_local_handler))
+        .route("/api/admin/probe_live", post(admin::probe_live_handler))
+        .route("/api/admin/subscription_content", get(admin::subscription_content_handler))
+        .route("/api/admin/login", post(admin::login_handler))
         .route("/{key}", get(subscribe_handler))
 }
 
 async fn ico() {}
-
-async fn index() -> &'static str {
-    "Private Subconverter Service is Running (Rust Axum Server2 - Independent Engine). V2.0"
-}
 
 /// 主动刷新私人规则接口：访问后立即从 GitHub 重新拉取 China.list 与 Global.list
 async fn refresh_handler() -> impl IntoResponse {
@@ -51,20 +59,6 @@ async fn refresh_handler() -> impl IntoResponse {
         if global_ok { "成功更新 (已从 GitHub 拉取最新)" } else { "未更新 (已使用本地文件或内置数据)" }
     );
     (StatusCode::OK, msg)
-}
-
-async fn url_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
-    info!("--- 收到新 /url 请求 ---");
-    let raw_query = uri.query().unwrap_or("");
-    if raw_query.is_empty() {
-        warn!("请求失败: 未提供机场订阅 URL");
-        return (StatusCode::BAD_REQUEST, "Missing airport URL.").into_response();
-    }
-
-    let force_refresh = raw_query.contains("refresh");
-    let decoded_url =
-        urlencoding::decode(raw_query).unwrap_or_else(|_| std::borrow::Cow::Borrowed(raw_query));
-    process_subscription(headers, &decoded_url, force_refresh).await
 }
 
 async fn subscribe_handler(
@@ -80,14 +74,25 @@ async fn subscribe_handler(
     let force_refresh = query.contains("refresh");
 
     match query {
-        "" | "refresh" => match registry::lookup(&key).await {
-            Some(url) => {
-                info!("找到已登记订阅: {} -> {}", key, url);
-                process_subscription(headers, &url, force_refresh).await
+        "" | "refresh" => match registry::lookup_item(&key).await {
+            Some(item) => {
+                if item.is_snapshot_mode() {
+                    // 已开启真节点快照直发模式：直接用保存的真节点底包重构输出（全绿、毫秒级极速响应、无风控，并带上保存的流量响应头）
+                    info!("⚡ [真节点快照直发] 命中真节点底包直接重构输出: {} (包含 {} 个节点)", key, item.node_count);
+                    render_yaml_response(&item.raw_yaml, force_refresh, None, Some(&item.user_info)).await
+                } else {
+                    // 实时在线拉取模式：向原 URL 实时拉取并重构输出，顺便记录/更新状态看板（绝不冻结/缓存 YAML）
+                    info!("🌐 [实时在线拉取] 未缓存真节点快照，向原 URL 实时请求: {} -> {}", key, item.url);
+                    process_subscription(headers, &item.url, force_refresh, Some(&key)).await
+                }
             }
             None => {
-                warn!("未找到订阅 URL: {}", key);
-                (StatusCode::NOT_FOUND, format!("未找到登记的订阅 URL: {}", key)).into_response()
+                warn!("未找到订阅: {}", key);
+                (
+                    StatusCode::NOT_FOUND,
+                    format!("未找到登记的订阅: {}\n请先在管理后台 /admin 中添加该订阅。", key),
+                )
+                    .into_response()
             }
         },
         "clear" => {
@@ -95,15 +100,35 @@ async fn subscribe_handler(
             (StatusCode::OK, format!("密钥 [{}] 已注销", key)).into_response()
         }
         _ => {
+            // 兼容快捷带参注册
             let decoded_url =
                 urlencoding::decode(query).unwrap_or_else(|_| std::borrow::Cow::Borrowed(query));
             registry::register(&key, &decoded_url).await;
-            process_subscription(headers, &decoded_url, force_refresh).await
+            process_subscription(headers, &decoded_url, force_refresh, Some(&key)).await
         }
     }
 }
 
-async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refresh: bool) -> Response {
+async fn url_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
+    info!("--- 收到新 /url 请求 ---");
+    let raw_query = uri.query().unwrap_or("");
+    if raw_query.is_empty() {
+        warn!("请求失败: 未提供机场订阅 URL");
+        return (StatusCode::BAD_REQUEST, "Missing airport URL.").into_response();
+    }
+
+    let force_refresh = raw_query.contains("refresh");
+    let decoded_url =
+        urlencoding::decode(raw_query).unwrap_or_else(|_| std::borrow::Cow::Borrowed(raw_query));
+    process_subscription(headers, &decoded_url, force_refresh, None).await
+}
+
+async fn process_subscription(
+    headers: HeaderMap,
+    airport_url: &str,
+    force_refresh: bool,
+    bind_key: Option<&str>,
+) -> Response {
     let airport_url = airport_url.trim();
     info!("开始下载机场订阅: {} (强制刷新规则: {})", airport_url, force_refresh);
 
@@ -130,7 +155,7 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
     };
     req_builder = req_builder.header(header::USER_AGENT, airport_ua);
 
-    // 透传客户端的真实 IP 头部，彻底解除机场对海外云端机房 (Render) 的风控拦截
+    // 透传客户端的真实 IP 头部，解除机场对海外云端机房 (Render 等) 的风控拦截
     for ip_header in &["x-forwarded-for", "cf-connecting-ip", "x-real-ip"] {
         if let Some(val) = headers.get(*ip_header) {
             req_builder = req_builder.header(*ip_header, val);
@@ -141,6 +166,9 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
         Ok(r) => r,
         Err(e) => {
             error!("下载机场订阅失败: {}", e);
+            if let Some(k) = bind_key {
+                registry::record_fetch_error(k, &format!("连接失败: {}", e)).await;
+            }
             return (
                 StatusCode::BAD_GATEWAY,
                 format!("Failed to fetch airport subscription: {}", e),
@@ -156,6 +184,9 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
     if !backend_status.is_success() {
         let err_body = backend_res.text().await.unwrap_or_default();
         error!("机场返回错误状态码 ({}): {}", backend_status, err_body);
+        if let Some(k) = bind_key {
+            registry::record_fetch_error(k, &format!("HTTP {}", backend_status)).await;
+        }
         return (backend_status, err_body).into_response();
     }
 
@@ -169,6 +200,9 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
         Ok(t) => t,
         Err(e) => {
             error!("读取订阅响应体失败: {}", e);
+            if let Some(k) = bind_key {
+                registry::record_fetch_error(k, "读取内容失败").await;
+            }
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("Read body error: {}", e),
@@ -177,22 +211,43 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
         }
     };
 
+    // 模式 A 顺手更新状态看板：记录节点数、流量信息与最新文件缓存（供后台纯读查看，不影响动态拉取）
+    if let Some(k) = bind_key {
+        let (cleaned_yaml, node_count) = match registry::clean_raw_yaml(&body_text) {
+            Ok((cleaned, count)) => (cleaned, count),
+            Err(_) => (String::new(), 0),
+        };
+        let user_info_str = backend_headers
+            .get("subscription-userinfo")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        registry::record_fetch_success(k, node_count, user_info_str, &cleaned_yaml).await;
+    }
+
     info!("订阅下载成功 (大小: {} 字节)，开始执行本地转换...", body_text.len());
 
+    render_yaml_response(&body_text, force_refresh, Some(&backend_headers), None).await
+}
+
+/// 核心重构与响应渲染：动态注入国家 select 策略分组与最新规则，并透传流量信息
+async fn render_yaml_response(
+    raw_yaml: &str,
+    force_refresh: bool,
+    backend_headers: Option<&HeaderMap>,
+    cached_user_info: Option<&str>,
+) -> Response {
     let converter = get_converter().await;
-    let final_yaml = match converter.convert(&body_text, force_refresh).await {
+    let final_yaml = match converter.convert(raw_yaml, force_refresh).await {
         Ok(yaml) => yaml,
         Err(e) => {
             warn!("转换 YAML 出现异常 (将透传原配置): {}", e);
-            body_text
+            raw_yaml.to_string()
         }
     };
 
-    info!("本地订阅转换完成，准备返回响应...");
-
     let mut response = Response::builder().status(StatusCode::OK);
 
-    // 设置响应头（透传流量、处置信息等，排除 hop-by-hop 头部）
+    // 设置响应头（透传流量信息等，排除 hop-by-hop 头部）
     let excluded = [
         "content-encoding",
         "content-length",
@@ -201,9 +256,17 @@ async fn process_subscription(headers: HeaderMap, airport_url: &str, force_refre
     ];
 
     if let Some(res_headers) = response.headers_mut() {
-        for (name, value) in backend_headers.iter() {
-            if !excluded.contains(&name.as_str()) {
-                res_headers.insert(name, value.clone());
+        if let Some(orig_headers) = backend_headers {
+            for (name, value) in orig_headers.iter() {
+                if !excluded.contains(&name.as_str()) {
+                    res_headers.insert(name, value.clone());
+                }
+            }
+        } else if let Some(user_info) = cached_user_info {
+            if !user_info.trim().is_empty() {
+                if let Ok(v) = user_info.parse() {
+                    res_headers.insert("subscription-userinfo", v);
+                }
             }
         }
         res_headers.insert(
