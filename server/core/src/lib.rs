@@ -31,14 +31,12 @@ pub fn router() -> Router {
     Router::new()
         .route("/", get(admin::page_handler))
         .route("/refresh", get(refresh_handler))
-        .route("/url", get(url_handler))
         .route("/favicon.ico", get(ico))
         .route("/TwemojiCountryFlags.woff2", get(admin::font_handler))
         .route("/api/admin/info", get(admin::info_handler))
         .route("/api/admin/list", get(admin::list_handler))
         .route("/api/admin/save", post(admin::save_handler))
         .route("/api/admin/delete", post(admin::delete_handler))
-        .route("/api/admin/clean_yaml", post(admin::clean_yaml_handler))
         .route("/api/admin/clear_cache", post(admin::clear_cache_handler))
         .route("/api/admin/fetch_local", post(admin::fetch_local_handler))
         .route("/api/admin/probe_live", post(admin::probe_live_handler))
@@ -77,9 +75,13 @@ async fn subscribe_handler(
         "" | "refresh" => match registry::lookup_item(&key).await {
             Some(item) => {
                 if item.is_snapshot_mode() {
-                    // 已开启真节点快照直发模式：直接用保存的真节点底包重构输出（全绿、毫秒级极速响应、无风控，并带上保存的流量响应头）
-                    info!("⚡ [真节点快照直发] 命中真节点底包直接重构输出: {} (包含 {} 个节点)", key, item.node_count);
-                    render_yaml_response(&item.raw_yaml, force_refresh, None, Some(&item.user_info)).await
+                    // 已开启真节点快照直发模式：
+                    // 1. 节点部分：直接从真节点底包重构输出（100%全绿、防风控、毫秒级响应）
+                    // 2. 流量部分：动态握手获取最新的实时剩余流量响应头（若超时则用已有流量保底）
+                    let latest_user_info = fetch_live_traffic_info(&item.url, &item.user_info, &key).await;
+
+                    info!("⚡ [真节点快照直发] 命中真节点底包直接重构输出: {} (包含 {} 个节点, 实时流量已动态同步)", key, item.node_count);
+                    render_yaml_response(&item.raw_yaml, force_refresh, None, Some(&latest_user_info)).await
                 } else {
                     // 实时在线拉取模式：向原 URL 实时拉取并重构输出，顺便记录/更新状态看板（绝不冻结/缓存 YAML）
                     info!("🌐 [实时在线拉取] 未缓存真节点快照，向原 URL 实时请求: {} -> {}", key, item.url);
@@ -109,18 +111,42 @@ async fn subscribe_handler(
     }
 }
 
-async fn url_handler(headers: HeaderMap, OriginalUri(uri): OriginalUri) -> impl IntoResponse {
-    info!("--- 收到新 /url 请求 ---");
-    let raw_query = uri.query().unwrap_or("");
-    if raw_query.is_empty() {
-        warn!("请求失败: 未提供机场订阅 URL");
-        return (StatusCode::BAD_REQUEST, "Missing airport URL.").into_response();
+/// 辅助方法：在快照直发模式下，动态向机场握手抓取最新的实时流量响应头（仅耗时数十毫秒，失败则回退已有流量）
+async fn fetch_live_traffic_info(url: &str, fallback_info: &str, key: &str) -> String {
+    let url = url.trim();
+    if url.is_empty() {
+        return fallback_info.to_string();
     }
 
-    let force_refresh = raw_query.contains("refresh");
-    let decoded_url =
-        urlencoding::decode(raw_query).unwrap_or_else(|_| std::borrow::Cow::Borrowed(raw_query));
-    process_subscription(headers, &decoded_url, force_refresh, None).await
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+
+    match client.get(url).header(header::USER_AGENT, "clash.meta").send().await {
+        Ok(resp) => {
+            if let Some(info_val) = resp.headers().get("subscription-userinfo").and_then(|v| v.to_str().ok()) {
+                let info_str = info_val.to_string();
+                if !info_str.is_empty() {
+                    // 异步更新后台数据库中记录的流量状态
+                    let k = key.to_string();
+                    let info_clone = info_str.clone();
+                    tokio::spawn(async move {
+                        if let Some(mut it) = registry::lookup_item(&k).await {
+                            it.user_info = info_clone;
+                            registry::save_subscription(it).await;
+                        }
+                    });
+                    return info_str;
+                }
+            }
+        }
+        Err(e) => {
+            warn!("快照模式下动态获取最新流量超时或异常 (使用已有流量保底): {}", e);
+        }
+    }
+
+    fallback_info.to_string()
 }
 
 async fn process_subscription(

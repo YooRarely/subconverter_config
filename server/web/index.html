@@ -88,27 +88,6 @@
     }
     input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
     
-    .mode-selector {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-    .mode-option {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: rgba(15, 23, 42, 0.5);
-    }
-    .mode-option.active {
-      border-color: var(--primary);
-      background: rgba(56, 189, 248, 0.1);
-    }
-    .mode-option h4 { font-size: 0.95rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
-    .mode-option p { font-size: 0.8rem; color: var(--text-muted); }
-    
     .btn {
       display: inline-flex;
       align-items: center;
@@ -402,9 +381,8 @@
     .close-btn:hover { color: #fff; }
     
     @media (max-width: 640px) {
-      .mode-selector { grid-template-columns: 1fr; }
-      .sub-item { flex-direction: column; align-items: flex-start; gap: 12px; }
-      .sub-actions { width: 100%; justify-content: flex-end; }
+      .sub-card-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .footer-right { width: 100%; justify-content: flex-end; }
     }
   </style>
 </head>
@@ -519,9 +497,35 @@
           <h3 style="font-size: 1.15rem; margin: 12px 0 6px; color: #cbd5e1;">当前订阅在服务器中暂无缓存文件</h3>
           <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 16px;">
             本页面仅读取服务器当前已存在的订阅文件缓存（绝不向机场发起任何网络请求）。<br>
-            您可以在列表中点击「🔄 在线探测刷新」或「⚡ 缓存为真节点快照」生成缓存。
+            您可以在列表中点击「🔄 在线探测刷新」或「⚡ 导入真节点快照」生成缓存。
           </p>
           <button class="btn btn-primary btn-sm" onclick="backToList()">⬅️ 返回列表</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导入真节点快照对话框 (手动粘贴导入真节点，彻底破除机场风控) -->
+  <div class="modal" id="snapshot-modal" style="display: none;" onclick="closeSnapshotModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="snapshot-modal-title" style="font-size: 1.15rem; font-weight: 700; color: #fff;">⚡ 导入真节点快照</h3>
+        <button class="close-btn" onclick="closeSnapshotModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          请在此直接粘贴由本地 Clash 客户端获取到的真实订阅内容（YAML 格式）：<br>
+          <span style="color: #38bdf8;">系统将自动清洗，仅提取纯净真节点并彻底破除机房风控。流量信息将由云端自动关联原链接无缝捕获并同步展示，无需手动填写。</span>
+        </p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.82rem; color: var(--text-muted);">订阅配置内容 (YAML 纯文本)：</span>
+          <button class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 2px 8px;" onclick="tryAutoFetchToModal()">🌐 尝试由服务器自动抓取填入</button>
+        </div>
+        <textarea id="snapshot-input" rows="14" placeholder="在此粘贴 Clash 真实配置内容 (包含 proxies: 节点列表)..." style="font-family: Consolas, monospace; font-size: 0.85rem; width: 100%; white-space: pre; line-height: 1.4;"></textarea>
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 16px;">
+          <span id="snapshot-modal-msg" style="font-size: 0.85rem; margin-right: auto;"></span>
+          <button class="btn btn-secondary" onclick="closeSnapshotModal()">取消</button>
+          <button class="btn btn-primary" id="snapshot-confirm-btn" onclick="submitSnapshotModal()">🚀 确认并保存真节点快照</button>
         </div>
       </div>
     </div>
@@ -688,7 +692,7 @@
           if (isSnapshot) {
             statusBadge = '<span class="badge badge-cached">⚡ 真节点快照 · ' + item.node_count + ' 个节点 (直接下发)</span>';
             cacheActionBtn = `
-              <button class="btn btn-secondary btn-sm" onclick="fetchAndCache('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">🔄 更新快照</button>
+              <button class="btn btn-secondary btn-sm" onclick="openSnapshotModal('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">🔄 更新快照内容</button>
               <button class="btn btn-secondary btn-sm" onclick="clearCache('${escapeHtml(item.key)}')">🧹 移除快照 (转实时)</button>
             `;
           } else {
@@ -701,7 +705,7 @@
               statusBadge = '<span class="badge badge-live">🌐 实时在线拉取 (待首次拉取)</span>';
             }
             cacheActionBtn = `
-              <button class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); color: #fff;" onclick="fetchAndCache('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">⚡ 缓存为真节点快照</button>
+              <button class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); color: #fff;" onclick="openSnapshotModal('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">⚡ 导入真节点快照</button>
               <button class="btn btn-secondary btn-sm" onclick="probeLive('${escapeHtml(item.key)}', '${escapeHtml(item.url)}')">🔄 在线探测刷新</button>
             `;
           }
@@ -807,50 +811,105 @@
       }
     }
 
-    // 为列表中的条目拉取真节点并写入缓存（通过伪装 clash.meta UA 发起拉取）
-    async function fetchAndCache(key, url) {
-      if (!url) return alert('该订阅未记录机场 URL，无法抓取');
-      const listMsg = document.getElementById('list-msg');
-      listMsg.innerText = '⏳ 正在为 [' + key + '] 抓取真节点并更新缓存 (伪装 clash.meta)...';
-      listMsg.style.color = '#38bdf8';
+    let currentModalKey = '';
+    let currentModalUrl = '';
+
+    function openSnapshotModal(key, url) {
+      currentModalKey = key;
+      currentModalUrl = url;
+      document.getElementById('snapshot-modal-title').innerText = '⚡ 导入真节点快照 - [' + key + ']';
+      document.getElementById('snapshot-input').value = '';
+      document.getElementById('snapshot-modal-msg').innerText = '';
+      document.getElementById('snapshot-modal').style.display = 'flex';
+      setTimeout(() => document.getElementById('snapshot-input').focus(), 100);
+    }
+
+    function closeSnapshotModal() {
+      document.getElementById('snapshot-modal').style.display = 'none';
+    }
+
+    async function tryAutoFetchToModal() {
+      if (!currentModalUrl) return alert('该订阅未记录机场 URL');
+      const msg = document.getElementById('snapshot-modal-msg');
+      msg.innerText = '⏳ 正在尝试向机场自动拉取...';
+      msg.style.color = '#38bdf8';
 
       try {
         const fetchRes = await fetch('/api/admin/fetch_local', {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ url })
+          body: JSON.stringify({ url: currentModalUrl })
         });
         const fetchData = await fetchRes.json();
-        if (!fetchData.success) {
-          listMsg.innerText = '❌ [' + key + '] 抓取失败: ' + fetchData.message;
-          listMsg.style.color = '#f87171';
-          alert('抓取失败: ' + fetchData.message);
-          return;
+        if (fetchData.success && fetchData.cleaned_yaml) {
+          document.getElementById('snapshot-input').value = fetchData.cleaned_yaml;
+          msg.innerText = '✅ 已成功自动填入抓取内容 (共 ' + fetchData.node_count + ' 节点)';
+          msg.style.color = '#10b981';
+        } else {
+          msg.innerText = '⚠️ 自动拉取失败: ' + fetchData.message + '，请直接手动在此粘贴';
+          msg.style.color = '#f59e0b';
         }
+      } catch (err) {
+        msg.innerText = '⚠️ 自动拉取异常，请手动在此粘贴配置内容';
+        msg.style.color = '#f59e0b';
+      }
+    }
 
+    async function submitSnapshotModal() {
+      const rawText = document.getElementById('snapshot-input').value.trim();
+      const msg = document.getElementById('snapshot-modal-msg');
+      const btn = document.getElementById('snapshot-confirm-btn');
+
+      if (!rawText) {
+        msg.innerText = '❌ 请先粘贴或输入订阅配置内容！';
+        msg.style.color = '#f87171';
+        return;
+      }
+
+      let inputYaml = rawText;
+      // 智能 Base64 探测识别与解码
+      if (!inputYaml.includes('proxies:') && !inputYaml.includes('server:')) {
+        try {
+          const decoded = atob(inputYaml.replace(/\s/g, ''));
+          if (decoded.includes('proxies:') || decoded.includes('server:')) {
+            inputYaml = decoded;
+          }
+        } catch (_) {}
+      }
+
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      msg.innerText = '⏳ 正在清洗并保存快照...';
+      msg.style.color = '#38bdf8';
+
+      try {
         const updateRes = await fetch('/api/admin/save', {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
-            key,
-            url,
-            raw_yaml: fetchData.cleaned_yaml,
-            user_info: fetchData.user_info,
+            key: currentModalKey,
+            url: currentModalUrl,
+            raw_yaml: inputYaml,
             is_manual_cached: true
           })
         });
         const updateData = await updateRes.json();
         if (updateData.success) {
-          listMsg.innerText = '✅ [' + key + '] 真节点快照更新成功！已缓存 ' + fetchData.node_count + ' 个节点。';
+          closeSnapshotModal();
+          const listMsg = document.getElementById('list-msg');
+          listMsg.innerText = '✅ [' + currentModalKey + '] 真节点快照保存成功！';
           listMsg.style.color = '#10b981';
           await loadList();
         } else {
-          listMsg.innerText = '❌ 快照更新失败: ' + updateData.message;
-          listMsg.style.color = '#f87171';
+          msg.innerText = '❌ 保存快照失败: ' + updateData.message;
+          msg.style.color = '#f87171';
         }
       } catch (e) {
-        listMsg.innerText = '❌ 发生异常: ' + e;
-        listMsg.style.color = '#f87171';
+        msg.innerText = '❌ 保存异常: ' + e;
+        msg.style.color = '#f87171';
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
       }
     }
 

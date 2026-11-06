@@ -115,12 +115,12 @@ async fn test_router_endpoints() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
-    // 3. GET /url 无 query 报 400
+    // 3. GET /url 不再是特殊路由，而是作为正常的 key 供订阅 (未注册报 404)
     let res = app.clone()
         .oneshot(Request::builder().uri("/url").body(axum::body::Body::empty()).unwrap())
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
     // 4. GET /unregistered_key 未注册报 404
     let res = app.clone()

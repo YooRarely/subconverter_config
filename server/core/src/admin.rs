@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::env;
 use crate::registry::{self, SubscriptionItem};
@@ -169,7 +170,6 @@ pub async fn save_handler(
                     node_count: 0,
                     is_manual_cached: false,
                     last_status: "pending".to_string(),
-                    mode: "url".to_string(),
                 };
                 registry::save_subscription(item).await;
                 return Ok(Json(CommonResponse {
@@ -188,7 +188,6 @@ pub async fn save_handler(
                 node_count: 0,
                 is_manual_cached: false,
                 last_status: "pending".to_string(),
-                mode: "url".to_string(),
             };
             registry::save_subscription(item).await;
             return Ok(Json(CommonResponse {
@@ -220,7 +219,29 @@ pub async fn save_handler(
         }
     }
 
-    let user_info = payload.user_info.unwrap_or_default();
+    // 流量信息智能补全：优先使用传入值 -> 继承已有流量 -> 向机场URL快速探活捕获最新流量响应头
+    let mut user_info = if let Some(info) = payload.user_info {
+        info
+    } else if let Some(ref existing) = existing_opt {
+        existing.user_info.clone()
+    } else {
+        String::new()
+    };
+
+    // 若流量为空且具备机场原链，向机场请求一次获取最新的 Subscription-Userinfo 响应头 (机场不风控流量响应头)
+    if user_info.trim().is_empty() && !new_url.is_empty() {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(6))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        if let Ok(resp) = client.get(&new_url).header(header::USER_AGENT, "clash.meta").send().await {
+            if let Some(info_val) = resp.headers().get("subscription-userinfo").and_then(|v| v.to_str().ok()) {
+                user_info = info_val.to_string();
+                info!("已自动为快照订阅 [{}] 捕获最新流量响应头: {}", key, user_info);
+            }
+        }
+    }
+
     let is_manual_cached = payload.is_manual_cached.unwrap_or(!raw_yaml.is_empty());
 
     let item = SubscriptionItem {
@@ -232,7 +253,6 @@ pub async fn save_handler(
         node_count,
         is_manual_cached,
         last_status: "ok".to_string(),
-        mode: String::new(),
     };
 
     registry::save_subscription(item).await;
@@ -507,44 +527,6 @@ pub async fn delete_handler(
         success: true,
         message: format!("订阅 [{}] 已删除", payload.key),
     }))
-}
-
-#[derive(Deserialize)]
-pub struct CleanYamlPayload {
-    pub raw_yaml: String,
-}
-
-#[derive(Serialize)]
-pub struct CleanYamlResponse {
-    pub success: bool,
-    pub message: String,
-    pub cleaned_yaml: String,
-    pub node_count: usize,
-}
-
-pub async fn clean_yaml_handler(
-    headers: HeaderMap,
-    Query(query): Query<AuthQuery>,
-    Json(payload): Json<CleanYamlPayload>,
-) -> Result<Json<CleanYamlResponse>, (StatusCode, &'static str)> {
-    if !is_authorized(&headers, query.token.as_deref()) {
-        return Err((StatusCode::UNAUTHORIZED, "管理员密码错误或未提供"));
-    }
-
-    match registry::clean_raw_yaml(&payload.raw_yaml) {
-        Ok((cleaned, count)) => Ok(Json(CleanYamlResponse {
-            success: true,
-            message: "清洗成功".to_string(),
-            cleaned_yaml: cleaned,
-            node_count: count,
-        })),
-        Err(e) => Ok(Json(CleanYamlResponse {
-            success: false,
-            message: e,
-            cleaned_yaml: String::new(),
-            node_count: 0,
-        })),
-    }
 }
 
 #[derive(Deserialize)]

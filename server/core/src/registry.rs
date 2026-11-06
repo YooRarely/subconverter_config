@@ -23,8 +23,6 @@ pub struct SubscriptionItem {
     pub is_manual_cached: bool,    // 显式标志：是否开启了手动真节点快照模式 (模式 B)
     #[serde(default)]
     pub last_status: String,       // 运行状态: "ok" 或具体错误 "error: ..."
-    #[serde(default)]
-    pub mode: String,              // 兼容旧字段
 }
 
 impl SubscriptionItem {
@@ -98,7 +96,6 @@ pub async fn register(key: &str, url: &str) {
         node_count: 0,
         is_manual_cached: false,
         last_status: "pending".to_string(),
-        mode: "url".to_string(),
     };
     save_subscription(item).await;
 }
@@ -124,7 +121,6 @@ pub async fn lookup_item(key: &str) -> Option<SubscriptionItem> {
             node_count: 0,
             is_manual_cached: false,
             last_status: "ok".to_string(),
-            mode: "url".to_string(),
         });
     }
 
@@ -174,7 +170,6 @@ pub async fn clear_subscription_cache(key: &str) -> bool {
     if let Some(mut item) = lookup_item(key).await {
         item.raw_yaml = String::new();
         item.is_manual_cached = false;
-        item.mode = "url".to_string();
         save_subscription(item).await;
         info!("订阅 [{}] 的真节点快照已清空，变更为纯实时在线拉取状态", key);
         return true;
