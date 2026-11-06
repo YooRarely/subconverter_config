@@ -132,9 +132,20 @@ pub async fn lookup(key: &str) -> Option<String> {
     lookup_item(key).await.map(|item| item.url)
 }
 
-/// 在线实时拉取成功时，异步记录最新元数据（节点数、流量信息、状态），绝不覆盖/冻结 raw_yaml！
+/// 在线实时拉取成功时，异步记录最新元数据
 pub async fn record_fetch_success(key: &str, node_count: usize, user_info: &str, raw_yaml: &str) {
     if let Some(mut item) = lookup_item(key).await {
+        // 铁律：若已开启手动真节点快照模式，raw_yaml 属于用户锁死保护的资产，绝对禁止被任何自动拉取覆盖！
+        if item.is_manual_cached && !item.raw_yaml.trim().is_empty() {
+            if !user_info.trim().is_empty() {
+                item.user_info = user_info.to_string();
+            }
+            item.last_status = "ok".to_string();
+            save_subscription(item).await;
+            info!("订阅 [{}] 处于手动真节点快照锁定保护中，已拦截自动拉取覆盖，仅更新实时流量", key);
+            return;
+        }
+
         item.node_count = node_count;
         if !user_info.trim().is_empty() {
             item.user_info = user_info.to_string();
