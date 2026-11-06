@@ -2015,6 +2015,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 name = "vercel-adapter"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "subconverter-core",
  "tokio",
  "tower",
