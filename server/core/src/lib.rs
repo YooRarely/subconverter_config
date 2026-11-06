@@ -115,7 +115,7 @@ async fn subscribe_handler(
 }
 
 async fn process_subscription(
-    headers: HeaderMap,
+    _headers: HeaderMap,
     airport_url: &str,
     force_refresh: bool,
     bind_key: Option<&str>,
@@ -128,30 +128,10 @@ async fn process_subscription(
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
 
-    let mut req_builder = client.get(airport_url);
-
-    let client_ua = headers
-        .get(header::USER_AGENT)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-
-    // 若客户端是浏览器或普通工具，统一使用 clash.meta 确保机场返回标准 YAML
-    let airport_ua = if client_ua.to_lowercase().contains("clash")
-        || client_ua.to_lowercase().contains("meta")
-        || client_ua.to_lowercase().contains("mihomo")
-    {
-        client_ua
-    } else {
-        "clash.meta"
-    };
-    req_builder = req_builder.header(header::USER_AGENT, airport_ua);
-
-    // 透传客户端的真实 IP 头部，解除机场对海外云端机房 (Render 等) 的风控拦截
-    for ip_header in &["x-forwarded-for", "cf-connecting-ip", "x-real-ip"] {
-        if let Some(val) = headers.get(*ip_header) {
-            req_builder = req_builder.header(*ip_header, val);
-        }
-    }
+    // 统一使用验证最稳定、兼容性最好的 clash.meta UA，不添加任何可能引发 Cloudflare WAF 403 拦截的私有头部
+    let req_builder = client
+        .get(airport_url)
+        .header(header::USER_AGENT, "clash.meta");
 
     let backend_res = match req_builder.send().await {
         Ok(r) => r,
