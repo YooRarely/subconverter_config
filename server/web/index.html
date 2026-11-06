@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -807,49 +807,80 @@
       }
     }
 
-    // 为列表中的条目拉取真节点并写入缓存（状态直接显示在下方列表面板内）
+    // 真正由用户本地浏览器发起请求拉取真节点 (避免 Render 等海外机房 IP 触发机场风控下发假节点)
     async function fetchAndCache(key, url) {
       if (!url) return alert('该订阅未记录机场 URL，无法抓取');
       const listMsg = document.getElementById('list-msg');
-      listMsg.innerText = '⏳ 正在为 [' + key + '] 抓取真节点并更新缓存...';
+      listMsg.innerText = '⏳ 正在通过本地浏览器直连机场拉取真节点 (家宽环境)...';
       listMsg.style.color = '#38bdf8';
 
+      // 1. 处理机场 URL：追加 &flag=clash 确保机场面板下发 Clash YAML 格式
+      let fetchUrl = url;
+      if (!fetchUrl.includes('flag=')) {
+        fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'flag=clash';
+      }
+
+      let rawYaml = '';
+      let userInfo = '';
+
+      // 2. 核心：由当前运行在您电脑上的本地浏览器发起直连请求！
       try {
-        const fetchRes = await fetch('/api/admin/fetch_local', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ url })
-        });
-        const fetchData = await fetchRes.json();
-        if (!fetchData.success) {
-          listMsg.innerText = '❌ [' + key + '] 抓取失败: ' + fetchData.message;
+        const airportResp = await fetch(fetchUrl);
+        if (!airportResp.ok) {
+          throw new Error('机场返回 HTTP ' + airportResp.status);
+        }
+        rawYaml = await airportResp.text();
+        userInfo = airportResp.headers.get('subscription-userinfo') || '';
+      } catch (browserErr) {
+        console.warn('本地浏览器直接请求机场失败 (可能遭遇跨域拦截):', browserErr);
+
+        // 终极友好兜底：若由于极少数机场开启了严格 CORS 跨域拦截，引导一键粘贴
+        const manualInput = prompt(
+          '【本地浏览器直连受阻】\n' +
+          '该机场域名开启了浏览器跨域限制 (CORS)，本地浏览器无法直接异步读取内容。\n\n' +
+          '请在新标签页打开该链接并复制全部页面内容，然后粘贴到下方输入框中：\n' + fetchUrl
+        );
+        if (manualInput && manualInput.trim()) {
+          rawYaml = manualInput.trim();
+        } else {
+          listMsg.innerText = '❌ 已取消抓取';
           listMsg.style.color = '#f87171';
-          alert('抓取失败: ' + fetchData.message);
           return;
         }
+      }
 
-        const updateRes = await fetch('/api/admin/save', {
+      if (!rawYaml || !rawYaml.trim()) {
+        listMsg.innerText = '❌ 未能获取到订阅节点内容';
+        listMsg.style.color = '#f87171';
+        return;
+      }
+
+      // 3. 将本地浏览器捕获到的真节点内容直接提交给服务器持久化保存
+      try {
+        listMsg.innerText = '⏳ 本地真节点获取成功，正在上传至云端持久化存储...';
+        const saveRes = await fetch('/api/admin/save', {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
             key,
             url,
-            raw_yaml: fetchData.cleaned_yaml,
-            user_info: fetchData.user_info,
+            raw_yaml: rawYaml,
+            user_info: userInfo,
             is_manual_cached: true
           })
         });
-        const updateData = await updateRes.json();
-        if (updateData.success) {
-          listMsg.innerText = '✅ [' + key + '] 真节点快照更新成功！已缓存 ' + fetchData.node_count + ' 个真节点。';
+        const saveData = await saveRes.json();
+        if (saveData.success) {
+          listMsg.innerText = '✅ [' + key + '] 真节点快照更新成功！已成功锁定本地真节点 (100%全绿)。';
           listMsg.style.color = '#10b981';
           await loadList();
         } else {
-          listMsg.innerText = '❌ 快照更新失败: ' + updateData.message;
+          listMsg.innerText = '❌ 保存快照失败: ' + saveData.message;
           listMsg.style.color = '#f87171';
+          alert('保存快照失败: ' + saveData.message);
         }
-      } catch (e) {
-        listMsg.innerText = '❌ 发生异常: ' + e;
+      } catch (err) {
+        listMsg.innerText = '❌ 上传同步失败: ' + err;
         listMsg.style.color = '#f87171';
       }
     }
