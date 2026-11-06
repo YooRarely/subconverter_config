@@ -22,7 +22,7 @@ humansize = "2.1.3"
 moka = { version = "0.12", features = ["future"] }
 async-trait = "0.1"
 anyhow = "1.0"
-redis = { version = "1.0.4", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "1.0.4", features = ["tokio-rustls-comp", "connection-manager"] }
 once_cell = "1.21"
 
 [dev-dependencies]

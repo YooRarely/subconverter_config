@@ -27,12 +27,11 @@ pub(crate) async fn get_converter() -> &'static Arc<converter::Converter> {
         .await
 }
 
-pub fn router() -> Router {
+/// 纯业务与 API 路由（不绑定任何前端静态下发方式，供各平台适配器自由组合）
+pub fn api_router() -> Router {
     Router::new()
-        .route("/", get(admin::page_handler))
         .route("/refresh", get(refresh_handler))
         .route("/favicon.ico", get(ico))
-        .route("/TwemojiCountryFlags.woff2", get(admin::font_handler))
         .route("/api/admin/info", get(admin::info_handler))
         .route("/api/admin/list", get(admin::list_handler))
         .route("/api/admin/save", post(admin::save_handler))
@@ -43,6 +42,13 @@ pub fn router() -> Router {
         .route("/api/admin/subscription_content", get(admin::subscription_content_handler))
         .route("/api/admin/login", post(admin::login_handler))
         .route("/{key}", get(subscribe_handler))
+}
+
+/// 标准完整路由（本地 / Docker / Render 容器环境使用，静态资源优先动态读磁盘）
+pub fn router() -> Router {
+    api_router()
+        .route("/", get(admin::page_handler))
+        .route("/TwemojiCountryFlags.woff2", get(admin::font_handler))
 }
 
 async fn ico() {}

@@ -1,7 +1,7 @@
 use axum::http::header;
 use axum::response::IntoResponse;
 use axum::routing::get;
-use core::router;
+use core::api_router;
 use tower::ServiceBuilder;
 use vercel_runtime::Error;
 use vercel_runtime::axum::VercelLayer;
@@ -27,8 +27,8 @@ async fn vercel_font_handler() -> impl IntoResponse {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    // 挂载 core 基础业务路由，并在 vercel 适配层覆盖注入静态 Web 资产
-    let app_router = router()
+    // 挂载 core 基础 API 路由，并在 vercel 适配层自主挂载静态 Web 资产 (0 路由冲突)
+    let app_router = api_router()
         .route("/", get(vercel_page_handler))
         .route("/TwemojiCountryFlags.woff2", get(vercel_font_handler));
 
