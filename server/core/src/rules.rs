@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;
@@ -16,8 +16,8 @@ const DEFAULT_CORE_CHINA: &str = include_str!("../../config/rules/China.list");
 // 远程规则原文常驻内存缓存：URL -> String
 static REMOTE_CACHE: Lazy<RwLock<HashMap<String, String>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
-// 全局预编译常驻规则链（启动时一次性加载编译进内存，日常客户端请求 0ms 纯只读返回）
-static COMPILED_RULES: Lazy<RwLock<Vec<String>>> = Lazy::new(|| RwLock::new(Vec::new()));
+// 全局预编译常驻规则链状态（启动时一次性加载编译进内存，日常客户端请求与看板查询均为 0ms 纯只读返回）
+static COMPILED_STATE: Lazy<RwLock<Option<RulesOverviewResponse>>> = Lazy::new(|| RwLock::new(None));
 
 #[derive(Debug, Deserialize)]
 pub struct RulesetConfig {
@@ -33,19 +33,56 @@ pub struct RulesetItem {
     pub remote: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct RulesetOverviewItem {
+    pub order: usize,
+    pub name: String,
+    pub group: String,
+    pub source_type: String, // "remote" | "local" | "inline"
+    pub source: String,
+    pub count: usize,
+    pub rules: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RulesOverviewResponse {
+    pub success: bool,
+    pub total_rules: usize,
+    pub rulesets: Vec<RulesetOverviewItem>,
+}
+
 pub struct RulesBuilder;
 
 impl RulesBuilder {
-    /// 日常请求入口：直接从内存只读获取已预编译好的规则链（0 延迟、0 外部请求、0 磁盘扫描）
+    /// 控制台看板专用：直接从内存获取结构化分流规则文件概览（0ms 纯内存只读）
+    pub async fn get_rules_overview() -> RulesOverviewResponse {
+        {
+            let lock = COMPILED_STATE.read().await;
+            if let Some(ref overview) = *lock {
+                return overview.clone();
+            }
+        }
+
+        // 冷启动未预热时自动编译加载一次
+        let _ = Self::init_or_reload(false).await;
+        let lock = COMPILED_STATE.read().await;
+        lock.clone().unwrap_or(RulesOverviewResponse {
+            success: true,
+            total_rules: 0,
+            rulesets: Vec::new(),
+        })
+    }
+
+    /// 日常请求入口：直接从内存只读获取已预编译好的拍平规则链（0 延迟、0 外部请求、0 磁盘扫描）
     pub async fn build_all_rules(force_refresh: bool) -> Vec<String> {
         if force_refresh {
             return Self::init_or_reload(true).await;
         }
 
         {
-            let rules_lock = COMPILED_RULES.read().await;
-            if !rules_lock.is_empty() {
-                return rules_lock.clone();
+            let lock = COMPILED_STATE.read().await;
+            if let Some(ref overview) = *lock {
+                return overview.rulesets.iter().flat_map(|rs| rs.rules.clone()).collect();
             }
         }
 
@@ -56,16 +93,17 @@ impl RulesBuilder {
     /// 核心编译引擎：程序启动时预热加载，或接收到 /refresh 时重新拉取编译
     pub async fn init_or_reload(force_fetch_remote: bool) -> Vec<String> {
         info!("--- 开始编译构建规则链 (强制刷新远程: {}) ---", force_fetch_remote);
-        let mut rules = Vec::new();
-
         let toml_str = Self::load_rules_toml();
         let config: RulesetConfig = toml::from_str(&toml_str).unwrap_or_else(|e| {
             warn!("解析 rules.toml 失败，回退到内置默认规则配置: {}", e);
             toml::from_str(DEFAULT_RULES_TOML).expect("内置 rules.toml 解析失败")
         });
 
-        for item in &config.rulesets {
-            let target_group = &item.group;
+        let mut overview_items = Vec::new();
+        let mut total = 0;
+
+        for (idx, item) in config.rulesets.iter().enumerate() {
+            let target_group = item.group.clone();
             let ruleset_val = item.ruleset.trim();
 
             if let Some(inline) = ruleset_val.strip_prefix("[]") {
@@ -74,41 +112,103 @@ impl RulesBuilder {
                 if inline.is_empty() {
                     continue;
                 }
-                let inline = if inline.eq_ignore_ascii_case("FINAL") {
-                    "MATCH"
+                let rule_str = if inline.eq_ignore_ascii_case("FINAL") {
+                    format!("MATCH,{}", target_group)
+                } else if let Some(prefix) = inline.strip_suffix(",no-resolve") {
+                    format!("{},{},no-resolve", prefix.trim(), target_group)
                 } else {
-                    inline
+                    format!("{},{}", inline, target_group)
                 };
 
-                if let Some(prefix) = inline.strip_suffix(",no-resolve") {
-                    rules.push(format!("{},{},no-resolve", prefix.trim(), target_group));
+                let name = if rule_str.starts_with("GEOIP") {
+                    "内联原生规则 · GEOIP 国内直连".to_string()
                 } else {
-                    rules.push(format!("{},{}", inline, target_group));
-                }
+                    "终极兜底规则 · MATCH".to_string()
+                };
+
+                overview_items.push(RulesetOverviewItem {
+                    order: idx + 1,
+                    name,
+                    group: target_group,
+                    source_type: "inline".to_string(),
+                    source: ruleset_val.to_string(),
+                    count: 1,
+                    rules: vec![rule_str],
+                });
+                total += 1;
             } else if ruleset_val.starts_with("http://") || ruleset_val.starts_with("https://") {
                 // 2. 远程私人规则 (URL 直接驱动)：从 GitHub 抓取并缓存，绝不扫描本地磁盘
                 let content = Self::load_remote_ruleset(ruleset_val, force_fetch_remote).await;
-                Self::append_rules(&mut rules, &content, target_group);
-            } else if let Some(ref remote_url) = item.remote {
-                // 2.2 兼容配置了 remote 的相对路径规则：优先走 remote 抓取
-                let content = Self::load_remote_ruleset(remote_url, force_fetch_remote).await;
-                Self::append_rules(&mut rules, &content, target_group);
+                let mut parsed_rules = Vec::new();
+                Self::append_rules(&mut parsed_rules, &content, &target_group);
+                let count = parsed_rules.len();
+                total += count;
+
+                let name = if ruleset_val.contains("China") {
+                    "私人直连规则清单 (China.list)".to_string()
+                } else if ruleset_val.contains("Global") {
+                    "私人代理规则清单 (Global.list)".to_string()
+                } else {
+                    format!("远程规则清单 ({})", Path::new(ruleset_val).file_name().and_then(|f| f.to_str()).unwrap_or(ruleset_val))
+                };
+
+                overview_items.push(RulesetOverviewItem {
+                    order: idx + 1,
+                    name,
+                    group: target_group,
+                    source_type: "remote".to_string(),
+                    source: ruleset_val.to_string(),
+                    count,
+                    rules: parsed_rules,
+                });
             } else {
                 // 3. 不变公共规则 (相对路径)：严格从服务端内部 server/config/ 资产加载
                 let content = Self::load_local_public_ruleset(ruleset_val);
-                Self::append_rules(&mut rules, &content, target_group);
+                let mut parsed_rules = Vec::new();
+                Self::append_rules(&mut parsed_rules, &content, &target_group);
+                let count = parsed_rules.len();
+                total += count;
+
+                let name = if ruleset_val.contains("AdRule") {
+                    "广告拦截过滤清单 (AdRule.list)".to_string()
+                } else if ruleset_val.contains("LocalAreaNetwork") {
+                    "局域网直连清单 (LocalAreaNetwork.list)".to_string()
+                } else if ruleset_val.contains("China") {
+                    "公共国内直连清单 (China.list)".to_string()
+                } else if ruleset_val.contains("Global") {
+                    "公共国外代理清单 (Global.list)".to_string()
+                } else {
+                    format!("公共规则清单 ({})", ruleset_val)
+                };
+
+                overview_items.push(RulesetOverviewItem {
+                    order: idx + 1,
+                    name,
+                    group: target_group,
+                    source_type: "local".to_string(),
+                    source: ruleset_val.to_string(),
+                    count,
+                    rules: parsed_rules,
+                });
             }
         }
 
-        info!("✅ 规则链编译构建完毕，有效规则共 {} 条", rules.len());
+        let all_rules: Vec<String> = overview_items.iter().flat_map(|rs| rs.rules.clone()).collect();
+        info!("✅ 规则链编译构建完毕，有效规则共 {} 条 ({} 个规则集)", all_rules.len(), overview_items.len());
 
-        // 原子写入全局内存缓存
+        let overview_resp = RulesOverviewResponse {
+            success: true,
+            total_rules: total,
+            rulesets: overview_items,
+        };
+
+        // 原子写入全局常驻内存状态
         {
-            let mut write_lock = COMPILED_RULES.write().await;
-            *write_lock = rules.clone();
+            let mut write_lock = COMPILED_STATE.write().await;
+            *write_lock = Some(overview_resp);
         }
 
-        rules
+        all_rules
     }
 
     /// 触发刷新接口专用：重新从 GitHub 拉取编译，并覆写全局内存规则链

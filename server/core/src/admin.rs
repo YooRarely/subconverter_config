@@ -59,6 +59,19 @@ pub async fn info_handler() -> impl IntoResponse {
     })
 }
 
+/// 获取分流规则链各规则文件的结构化详情（按文件分类，供控制台可视化规则面板展示）
+pub async fn rules_overview_handler(
+    headers: HeaderMap,
+    Query(query): Query<AuthQuery>,
+) -> Result<Json<crate::rules::RulesOverviewResponse>, (StatusCode, &'static str)> {
+    if !is_authorized(&headers, query.token.as_deref()) {
+        return Err((StatusCode::UNAUTHORIZED, "管理员密码错误或未提供"));
+    }
+
+    let overview = crate::rules::RulesBuilder::get_rules_overview().await;
+    Ok(Json(overview))
+}
+
 #[derive(Deserialize)]
 pub struct LoginPayload {
     pub password: String,

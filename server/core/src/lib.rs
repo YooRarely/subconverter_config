@@ -30,7 +30,6 @@ pub(crate) async fn get_converter() -> &'static Arc<converter::Converter> {
 /// 纯业务与 API 路由（不绑定任何前端静态下发方式，供各平台适配器自由组合）
 pub fn api_router() -> Router {
     Router::new()
-        .route("/refresh", get(refresh_handler))
         .route("/favicon.ico", get(ico))
         .route("/api/admin/info", get(admin::info_handler))
         .route("/api/admin/list", get(admin::list_handler))
@@ -40,6 +39,8 @@ pub fn api_router() -> Router {
         .route("/api/admin/fetch_local", post(admin::fetch_local_handler))
         .route("/api/admin/probe_live", post(admin::probe_live_handler))
         .route("/api/admin/subscription_content", get(admin::subscription_content_handler))
+        .route("/api/admin/rules_overview", get(admin::rules_overview_handler))
+        .route("/api/admin/refresh", get(refresh_handler))
         .route("/api/admin/login", post(admin::login_handler))
         .route("/{key}", get(subscribe_handler))
 }

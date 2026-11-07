@@ -142,12 +142,19 @@ async fn test_router_endpoints() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
-    // 6. GET /refresh 主动刷新规则测试 返回 200
+    // 6. GET /api/admin/refresh 主动刷新规则测试 返回 200
+    let res = app.clone()
+        .oneshot(Request::builder().uri("/api/admin/refresh").body(axum::body::Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    // 6.1 原 /refresh 路由已释放，作为普通 key 处理 (未注册报 404，彻底消除命名空间冲突)
     let res = app.clone()
         .oneshot(Request::builder().uri("/refresh").body(axum::body::Body::empty()).unwrap())
         .await
         .unwrap();
-    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
     // 7. GET /admin 不再是控制台路由，而是作为正常的 key 供客户端订阅 (未注册报 404)
     let res = app.clone()
@@ -159,6 +166,19 @@ async fn test_router_endpoints() {
     // 8. GET /api/admin/info 返回 200 JSON
     let res = app.clone()
         .oneshot(Request::builder().uri("/api/admin/info").body(axum::body::Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    // 9. GET /api/admin/rules_overview 分流规则链看板接口 (携带 Token) 返回 200 JSON
+    let res = app.clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/admin/rules_overview")
+                .header("Authorization", "Bearer admin123")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);

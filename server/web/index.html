@@ -380,6 +380,73 @@
     .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
     .close-btn:hover { color: #fff; }
     
+    .nav-tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-tab-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+    .nav-tab-btn.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+      border-color: var(--primary);
+      color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+    }
+    .ruleset-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+    .ruleset-header {
+      padding: 14px 18px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.4);
+      user-select: none;
+    }
+    .ruleset-header:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .ruleset-body {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+    .ruleset-list {
+      max-height: 380px;
+      overflow-y: auto;
+      font-family: Consolas, monospace;
+      font-size: 0.85rem;
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 8px;
+      padding: 6px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .rule-item-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .rule-item-line:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
     @media (max-width: 640px) {
       .sub-card-footer { flex-direction: column; align-items: flex-start; gap: 12px; }
       .footer-right { width: 100%; justify-content: flex-end; }
@@ -413,6 +480,12 @@
       </div>
       <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="doLogin()">🚀 解锁并进入控制台</button>
       <p id="login-msg" style="font-size: 0.88rem; color: #f87171; margin-top: 14px; min-height: 1.2em;"></p>
+    </div>
+
+    <!-- 顶层主选项卡导航 (登录通过后展示) -->
+    <div id="top-nav-tabs" style="display: none; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; gap: 12px;">
+      <button class="nav-tab-btn active" id="tab-btn-subs" onclick="switchMainTab('subs')">📡 订阅与节点管理</button>
+      <button class="nav-tab-btn" id="tab-btn-rules" onclick="switchMainTab('rules')">📜 分流规则链看板</button>
     </div>
 
     <!-- 主控制台业务面板 (登录通过后才渲染展示) -->
@@ -503,6 +576,27 @@
         </div>
       </div>
     </div>
+
+    <!-- 分流规则链看板面板 (按规则文件区分开来，点击展开展示具体规则) -->
+    <div id="rules-panel" style="display: none;">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+          <div>
+            <div class="card-title" style="margin-bottom: 4px;">📜 分流规则链看板 (严格按 rules.toml 执行顺序匹配)</div>
+            <p id="rules-summary-text" style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">正在加载分流规则链数据...</p>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="rules-filter-input" placeholder="🔍 快速搜索规则域名 (如 cn, steam, aliyun)..." style="padding: 7px 12px; font-size: 0.85rem; width: 240px;" oninput="filterRulesDisplay()">
+            <button class="btn btn-secondary btn-sm" onclick="triggerRefreshRules(true)">🔄 同步刷新私人规则</button>
+          </div>
+        </div>
+
+        <!-- 规则文件卡片列表容器 -->
+        <div id="ruleset-cards-list">
+          <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 24px;">加载分流规则中...</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 导入真节点快照对话框 (手动粘贴导入真节点，彻底破除机场风控) -->
@@ -533,6 +627,123 @@
 
   <script>
     let authRequired = false;
+    let currentMainTab = 'subs';
+
+    function switchMainTab(tab) {
+      currentMainTab = tab;
+      // 更新 Tab 按钮状态
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`tab-btn-${tab}`).classList.add('active');
+      // 切换面板显示
+      document.getElementById('main-panel').style.display = tab === 'subs' ? 'block' : 'none';
+      document.getElementById('rules-panel').style.display = tab === 'rules' ? 'block' : 'none';
+      
+      if (tab === 'rules') {
+        loadRulesOverview();
+      }
+    }
+
+    async function loadRulesOverview() {
+      const container = document.getElementById('ruleset-cards-list');
+      container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 24px;">正在载入规则数据...</p>';
+      
+      try {
+        const res = await fetch('/api/admin/rules_overview', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to load rules');
+        const data = await res.json();
+        
+        document.getElementById('rules-summary-text').innerText = `共检测到 ${data.total_rules} 条有效规则，分布在 ${data.rulesets.length} 个规则集文件中。`;
+        
+        renderRulesets(data.rulesets);
+      } catch (e) {
+        container.innerHTML = `<p style="color: #f87171; text-align: center;">加载规则失败: ${e.message}</p>`;
+      }
+    }
+
+    function renderRulesets(rulesets) {
+      const container = document.getElementById('ruleset-cards-list');
+      container.innerHTML = '';
+      rulesets.forEach((rs, idx) => {
+        const card = document.createElement('div');
+        card.className = 'ruleset-card';
+        card.dataset.name = rs.name;
+
+        // 来源标签
+        let sourceBadge = '';
+        if (rs.source_type === 'remote') {
+          sourceBadge = '<span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; margin-left: 8px;">🌐 GitHub 远程私人规则</span>';
+        } else if (rs.source_type === 'local') {
+          sourceBadge = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; margin-left: 8px;">📁 服务端内置公共清单</span>';
+        } else {
+          sourceBadge = '<span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4); font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; margin-left: 8px;">⚡ 原生内联规则</span>';
+        }
+
+        // 目标组徽章
+        let groupBadge = `<span class="badge" style="background: rgba(255, 255, 255, 0.1); color: #e2e8f0; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.15);">策略组: ${rs.group}</span>`;
+
+        // 前两条私人规则默认展开，其余折叠
+        const defaultOpen = idx < 2;
+
+        card.innerHTML = `
+          <div class="ruleset-header" onclick="toggleRuleset(this)">
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+              <span style="font-weight: 700; color: #38bdf8;">#${rs.order}</span>
+              <span style="font-weight: 600; color: #fff;">${rs.name}</span>
+              ${sourceBadge}
+              <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">(${rs.count} 条)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              ${groupBadge}
+              <span class="toggle-arrow" style="font-size: 0.75rem; color: var(--text-muted); transition: transform 0.2s;">${defaultOpen ? '▲' : '▼'}</span>
+            </div>
+          </div>
+          <div class="ruleset-body" style="display: ${defaultOpen ? 'block' : 'none'};">
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all;">
+              源定义: <code>${rs.source}</code>
+            </div>
+            <div class="ruleset-list">
+              ${rs.rules.map((r, rIdx) => `
+                <div class="rule-item-line" onclick="copyText('${r}', '规则已复制')" title="点击复制该条规则">
+                  <span style="color: #64748b; font-size: 0.75rem; width: 36px; user-select: none;">#${rIdx + 1}</span>
+                  <span style="flex: 1; color: #cbd5e1; word-break: break-all;">${r}</span>
+                  <span style="font-size: 0.72rem; color: #64748b; opacity: 0; transition: opacity 0.15s;" class="copy-hint">📋</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function toggleRuleset(header) {
+      const body = header.nextElementSibling;
+      const arrow = header.querySelector('.toggle-arrow');
+      if (body.style.display === 'block') {
+        body.style.display = 'none';
+        if (arrow) arrow.innerText = '▼';
+      } else {
+        body.style.display = 'block';
+        if (arrow) arrow.innerText = '▲';
+      }
+    }
+
+    function filterRulesDisplay() {
+      const filter = document.getElementById('rules-filter-input').value.toLowerCase();
+      document.querySelectorAll('.ruleset-card').forEach(card => {
+        const rules = card.querySelectorAll('.rule-item-line');
+        let hasMatch = false;
+        rules.forEach(rule => {
+          if (rule.innerText.toLowerCase().includes(filter)) {
+            hasMatch = true;
+            rule.style.display = 'flex';
+          } else {
+            rule.style.display = 'none';
+          }
+        });
+        card.style.display = (hasMatch || filter === '') ? 'block' : 'none';
+      });
+    }
 
     function getToken() {
       return localStorage.getItem('sub_admin_token') || '';
@@ -585,7 +796,11 @@
 
     function showLoginView() {
       document.getElementById('login-card').style.display = 'block';
+      const navTabs = document.getElementById('top-nav-tabs');
+      if (navTabs) navTabs.style.display = 'none';
       document.getElementById('main-panel').style.display = 'none';
+      const rulesPanel = document.getElementById('rules-panel');
+      if (rulesPanel) rulesPanel.style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none';
       setTimeout(() => {
         const inp = document.getElementById('admin-pwd-input');
@@ -595,7 +810,19 @@
 
     function showMainView() {
       document.getElementById('login-card').style.display = 'none';
-      document.getElementById('main-panel').style.display = 'block';
+      const navTabs = document.getElementById('top-nav-tabs');
+      if (navTabs) navTabs.style.display = 'flex';
+      
+      if (currentMainTab === 'rules') {
+        document.getElementById('main-panel').style.display = 'none';
+        const rulesPanel = document.getElementById('rules-panel');
+        if (rulesPanel) rulesPanel.style.display = 'block';
+      } else {
+        document.getElementById('main-panel').style.display = 'block';
+        const rulesPanel = document.getElementById('rules-panel');
+        if (rulesPanel) rulesPanel.style.display = 'none';
+      }
+
       if (authRequired) {
         document.getElementById('logout-btn').style.display = 'inline-flex';
       }
@@ -987,11 +1214,14 @@
       }
     }
 
-    async function triggerRefreshRules() {
+    async function triggerRefreshRules(isFromRulesPanel) {
       try {
-        const res = await fetch('/refresh');
+        const res = await fetch('/api/admin/refresh');
         const text = await res.text();
         alert(text);
+        if (currentMainTab === 'rules' || isFromRulesPanel) {
+          loadRulesOverview();
+        }
       } catch (e) {
         alert('刷新规则失败: ' + e);
       }
