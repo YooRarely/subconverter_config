@@ -13,8 +13,11 @@ const DEFAULT_LAN_RULE: &str = include_str!("../../config/rules/LocalAreaNetwork
 const DEFAULT_CORE_GLOBAL: &str = include_str!("../../config/rules/Global.list");
 const DEFAULT_CORE_CHINA: &str = include_str!("../../config/rules/China.list");
 
-// 远程规则常驻内存缓存：remote_url -> String
+// 远程规则原文常驻内存缓存：URL -> String
 static REMOTE_CACHE: Lazy<RwLock<HashMap<String, String>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+
+// 全局预编译常驻规则链（启动时一次性加载编译进内存，日常客户端请求 0ms 纯只读返回）
+static COMPILED_RULES: Lazy<RwLock<Vec<String>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
 #[derive(Debug, Deserialize)]
 pub struct RulesetConfig {
@@ -26,18 +29,35 @@ pub struct RulesetConfig {
 pub struct RulesetItem {
     pub group: String,
     pub ruleset: String,
+    #[serde(default)]
     pub remote: Option<String>,
 }
 
 pub struct RulesBuilder;
 
 impl RulesBuilder {
-    /// 加载并生成全部 Clash 规则列表（根据 server/config/rules.toml 配置的顺序动态构建）
-    /// force_refresh 为 true 时会强制穿透缓存从 GitHub 重新拉取远程规则
+    /// 日常请求入口：直接从内存只读获取已预编译好的规则链（0 延迟、0 外部请求、0 磁盘扫描）
     pub async fn build_all_rules(force_refresh: bool) -> Vec<String> {
+        if force_refresh {
+            return Self::init_or_reload(true).await;
+        }
+
+        {
+            let rules_lock = COMPILED_RULES.read().await;
+            if !rules_lock.is_empty() {
+                return rules_lock.clone();
+            }
+        }
+
+        // 若尚未初始化 (如冷启动第一次请求)，执行首次编译加载
+        Self::init_or_reload(false).await
+    }
+
+    /// 核心编译引擎：程序启动时预热加载，或接收到 /refresh 时重新拉取编译
+    pub async fn init_or_reload(force_fetch_remote: bool) -> Vec<String> {
+        info!("--- 开始编译构建规则链 (强制刷新远程: {}) ---", force_fetch_remote);
         let mut rules = Vec::new();
 
-        // 1. 读取并解析 rules.toml
         let toml_str = Self::load_rules_toml();
         let config: RulesetConfig = toml::from_str(&toml_str).unwrap_or_else(|e| {
             warn!("解析 rules.toml 失败，回退到内置默认规则配置: {}", e);
@@ -49,57 +69,53 @@ impl RulesBuilder {
             let ruleset_val = item.ruleset.trim();
 
             if let Some(inline) = ruleset_val.strip_prefix("[]") {
-                // 内联原生规则：例如 []GEOIP,CN,no-resolve 或 []MATCH
+                // 1. 内联原生规则：例如 []GEOIP,CN,no-resolve 或 []MATCH / []FINAL
                 let inline = inline.trim();
                 if inline.is_empty() {
                     continue;
                 }
+                let inline = if inline.eq_ignore_ascii_case("FINAL") {
+                    "MATCH"
+                } else {
+                    inline
+                };
+
                 if let Some(prefix) = inline.strip_suffix(",no-resolve") {
                     rules.push(format!("{},{},no-resolve", prefix.trim(), target_group));
                 } else {
                     rules.push(format!("{},{}", inline, target_group));
                 }
+            } else if ruleset_val.starts_with("http://") || ruleset_val.starts_with("https://") {
+                // 2. 远程私人规则 (URL 直接驱动)：从 GitHub 抓取并缓存，绝不扫描本地磁盘
+                let content = Self::load_remote_ruleset(ruleset_val, force_fetch_remote).await;
+                Self::append_rules(&mut rules, &content, target_group);
+            } else if let Some(ref remote_url) = item.remote {
+                // 2.2 兼容配置了 remote 的相对路径规则：优先走 remote 抓取
+                let content = Self::load_remote_ruleset(remote_url, force_fetch_remote).await;
+                Self::append_rules(&mut rules, &content, target_group);
             } else {
-                // 文件规则清单
-                let content = Self::load_ruleset_content(
-                    ruleset_val,
-                    item.remote.as_deref(),
-                    force_refresh,
-                )
-                .await;
-
+                // 3. 不变公共规则 (相对路径)：严格从服务端内部 server/config/ 资产加载
+                let content = Self::load_local_public_ruleset(ruleset_val);
                 Self::append_rules(&mut rules, &content, target_group);
             }
         }
 
-        info!("规则链已根据 rules.toml 生成完毕，有效规则共 {} 条", rules.len());
+        info!("✅ 规则链编译构建完毕，有效规则共 {} 条", rules.len());
+
+        // 原子写入全局内存缓存
+        {
+            let mut write_lock = COMPILED_RULES.write().await;
+            *write_lock = rules.clone();
+        }
+
         rules
     }
 
-    /// 主动触发远程规则刷新：重新从 GitHub 拉取 rules.toml 中所有定义了 remote 地址的规则
+    /// 触发刷新接口专用：重新从 GitHub 拉取编译，并覆写全局内存规则链
     pub async fn refresh_private_rules() -> (bool, bool) {
-        info!("--- 触发主动刷新：正在从 GitHub 拉取最新私人规则 ---");
-        let toml_str = Self::load_rules_toml();
-        let config: RulesetConfig = toml::from_str(&toml_str).unwrap_or_else(|_| {
-            toml::from_str(DEFAULT_RULES_TOML).unwrap()
-        });
-
-        let mut china_ok = false;
-        let mut global_ok = false;
-
-        for item in config.rulesets {
-            if let Some(ref remote_url) = item.remote {
-                let ok = Self::fetch_and_cache(remote_url).await;
-                if item.ruleset.contains("China") {
-                    china_ok = china_ok || ok;
-                }
-                if item.ruleset.contains("Global") {
-                    global_ok = global_ok || ok;
-                }
-            }
-        }
-
-        (china_ok, global_ok)
+        info!("--- 收到 /refresh 请求：重新从 GitHub 拉取私人规则并重新编译规则链 ---");
+        let rules = Self::init_or_reload(true).await;
+        (!rules.is_empty(), true)
     }
 
     fn load_rules_toml() -> String {
@@ -117,23 +133,46 @@ impl RulesBuilder {
         DEFAULT_RULES_TOML.to_string()
     }
 
-    async fn load_ruleset_content(
-        file_path: &str,
-        remote_url_opt: Option<&str>,
-        force_refresh: bool,
-    ) -> String {
-        // 1. 本地磁盘优先探查
-        let filename = Path::new(file_path).file_name().and_then(|f| f.to_str()).unwrap_or(file_path);
+    /// 抓取远程规则清单（带内存常驻缓存与网络容灾保底，绝不扫描本地磁盘）
+    async fn load_remote_ruleset(url: &str, force_fetch: bool) -> String {
+        if !force_fetch {
+            let cache = REMOTE_CACHE.read().await;
+            if let Some(text) = cache.get(url) {
+                return text.clone();
+            }
+        }
+
+        if Self::fetch_and_cache(url).await {
+            let cache = REMOTE_CACHE.read().await;
+            if let Some(text) = cache.get(url) {
+                return text.clone();
+            }
+        }
+
+        // 容灾：网络暂时超时或离线时使用已有的旧缓存
+        {
+            let cache = REMOTE_CACHE.read().await;
+            if let Some(text) = cache.get(url) {
+                return text.clone();
+            }
+        }
+
+        // 终极静态编译期兜底
+        if url.contains("China") {
+            DEFAULT_CORE_CHINA.to_string()
+        } else if url.contains("Global") {
+            DEFAULT_CORE_GLOBAL.to_string()
+        } else {
+            String::new()
+        }
+    }
+
+    /// 从服务端内部 server/config/ 目录读取不变的公共规则资产（绝不向上越界查找）
+    fn load_local_public_ruleset(file_path: &str) -> String {
         let paths_to_try = [
-            file_path.to_string(),
-            format!("config/{}", file_path),
             format!("server/config/{}", file_path),
-            format!("server/config/rules/{}", filename),
-            format!("config/rules/{}", filename),
-            format!("../config/rules/{}", filename),
-            format!("../../config/rules/{}", filename),
-            format!("rules/{}", filename),
-            format!("../rules/{}", filename),
+            format!("config/{}", file_path),
+            file_path.to_string(),
         ];
 
         for p in &paths_to_try {
@@ -144,39 +183,14 @@ impl RulesBuilder {
             }
         }
 
-        // 2. 远程拉取 (如 Render 环境无本地磁盘文件)
-        if let Some(remote_url) = remote_url_opt {
-            if !force_refresh {
-                let cache = REMOTE_CACHE.read().await;
-                if let Some(text) = cache.get(remote_url) {
-                    return text.clone();
-                }
-            }
-
-            if Self::fetch_and_cache(remote_url).await {
-                let cache = REMOTE_CACHE.read().await;
-                if let Some(text) = cache.get(remote_url) {
-                    return text.clone();
-                }
-            }
-
-            // 旧缓存保底
-            {
-                let cache = REMOTE_CACHE.read().await;
-                if let Some(text) = cache.get(remote_url) {
-                    return text.clone();
-                }
-            }
-        }
-
-        // 3. 内置静态兜底
-        if filename.contains("AdRule") {
+        // 静态编译期公共兜底
+        if file_path.contains("AdRule") {
             DEFAULT_AD_RULE.to_string()
-        } else if filename.contains("LocalAreaNetwork") {
+        } else if file_path.contains("LocalAreaNetwork") {
             DEFAULT_LAN_RULE.to_string()
-        } else if filename.contains("China") {
+        } else if file_path.contains("China") {
             DEFAULT_CORE_CHINA.to_string()
-        } else if filename.contains("Global") {
+        } else if file_path.contains("Global") {
             DEFAULT_CORE_GLOBAL.to_string()
         } else {
             String::new()
@@ -184,32 +198,31 @@ impl RulesBuilder {
     }
 
     async fn fetch_and_cache(remote_url: &str) -> bool {
-        info!("正在从远程 GitHub 拉取: {}", remote_url);
+        info!("正在从远程 GitHub 拉取私人规则: {}", remote_url);
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
 
         match client.get(remote_url).send().await {
-            Ok(res) if res.status().is_success() => {
-                if let Ok(text) = res.text().await {
+            Ok(resp) if resp.status().is_success() => {
+                if let Ok(text) = resp.text().await {
                     let mut cache = REMOTE_CACHE.write().await;
                     cache.insert(remote_url.to_string(), text);
-                    info!("成功拉取并覆盖更新了规则缓存: {}", remote_url);
+                    info!("✅ 成功同步并缓存远程规则: {}", remote_url);
                     return true;
                 }
             }
-            Ok(res) => {
-                warn!("从 GitHub 拉取返回非 200 状态码 ({}): {}", res.status(), remote_url);
+            Ok(resp) => {
+                warn!("从远程拉取规则返回异常状态码 ({}): {}", resp.status(), remote_url);
             }
             Err(e) => {
-                warn!("从 GitHub 拉取网络错误: {} ({})", e, remote_url);
+                warn!("从远程拉取规则网络失败: {} ({})", remote_url, e);
             }
         }
         false
     }
 
-    /// 辅助方法：解析规则文本、过滤非 Clash 规则并追加策略
     fn append_rules(dest: &mut Vec<String>, raw_content: &str, policy: &str) {
         const SUPPORTED_TYPES: &[&str] = &[
             "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "DOMAIN-REGEX",
@@ -220,28 +233,27 @@ impl RulesBuilder {
 
         for line in raw_content.lines() {
             let mut line = line.trim();
-            if line.is_empty() || line.starts_with('#') {
+            if line.is_empty() || line.starts_with('#') || line.starts_with("//") {
                 continue;
             }
 
-            if let Some(pos) = line.find("//") {
-                line = line[..pos].trim();
-            }
-            if line.is_empty() {
-                continue;
+            if line.starts_with("- ") {
+                line = line[2..].trim();
             }
 
-            let mut parts = line.splitn(2, ',');
-            let rule_type = parts.next().unwrap_or("").trim().to_uppercase();
-            let body = parts.next().unwrap_or("").trim();
-
-            if rule_type == "URL-REGEX" {
-                if let Some(domain_regex) = Self::convert_url_regex(body) {
+            if line.starts_with("URL-REGEX,") {
+                if let Some(domain_regex) = Self::convert_url_regex(&line[10..]) {
                     dest.push(format!("DOMAIN-REGEX,{},{}", domain_regex, policy));
                 }
                 continue;
             }
 
+            let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+            if parts.is_empty() {
+                continue;
+            }
+
+            let rule_type = parts[0].to_uppercase();
             if !SUPPORTED_TYPES.contains(&rule_type.as_str()) {
                 continue;
             }

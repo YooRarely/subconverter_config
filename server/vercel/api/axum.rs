@@ -31,6 +31,9 @@ async fn main() -> Result<(), Error> {
     dotenvy::dotenv().ok();
     let _ = core::env::init();
 
+    // 预热规则链编译进内存
+    tokio::spawn(core::rules::RulesBuilder::init_or_reload(false));
+
     // 挂载 core 基础 API 路由，并在 vercel 适配层自主挂载静态 Web 资产 (0 路由冲突)
     let app_router = api_router()
         .route("/", get(vercel_page_handler))

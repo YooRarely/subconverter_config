@@ -79,6 +79,12 @@ proxies:
     // 4. 验证 rules 存在并包含核心条目
     let rules = map.get(&Value::String("rules".to_string())).and_then(|v| v.as_sequence()).unwrap();
     let rule_strs: Vec<&str> = rules.iter().filter_map(|v| v.as_str()).collect();
+
+    println!("\n=== Generated Clash Rules Preview (first 10) ===");
+    for (idx, r) in rule_strs.iter().take(10).enumerate() {
+        println!("  [{}] {}", idx + 1, r);
+    }
+
     assert!(rule_strs.iter().any(|r| r.ends_with(",DIRECT")));
     assert!(rule_strs.iter().any(|r| r.ends_with(",🚀 节点选择")));
     assert!(rule_strs.iter().any(|r| r.ends_with(",REJECT")));

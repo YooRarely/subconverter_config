@@ -1,34 +1,32 @@
 # Subconverter 分流规则链顺序配置
-# 规则将按从上到下的顺序依次匹配并执行，修改后在控制台点击「刷新私人规则」或重启即可生效。
+# 启动时一次性编译加载进内存，接收到 /refresh 时重新拉取编译，日常订阅请求 0 延迟只读下发。
 
-# 1. 私人直连规则（最高优先级）
+# 1. 您的私人直连规则 (最高优先级！用于修正误杀)
 [[rulesets]]
 group = "DIRECT"
-ruleset = "rules/China.list"
-remote = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list"
+ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list"
 
-# 2. 私人代理规则（最高优先级）
+# 2. 您的私人代理规则 (最高优先级！)
 [[rulesets]]
 group = "🚀 节点选择"
-ruleset = "rules/Global.list"
-remote = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/Global.list"
+ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/Global.list"
 
-# 3. 广告拦截规则
+# 3. 拦截广告规则 (不变公共规则)
 [[rulesets]]
 group = "REJECT"
 ruleset = "rules/AdRule.list"
 
-# 4. 局域网直连规则
+# 4. 局域网直连规则 (不变公共规则)
 [[rulesets]]
 group = "DIRECT"
 ruleset = "rules/LocalAreaNetwork.list"
 
-# 5. 核心分流：被墙国外常见域名 -> 走主选择组
+# 5. 核心分流：被墙国外常见域名 -> 走主选择组 (不变公共规则)
 [[rulesets]]
 group = "🚀 节点选择"
 ruleset = "rules/Global.list"
 
-# 6. 国内常见直连域名 -> 走直连
+# 6. 国内常见直连域名 -> 走直连 (不变公共规则，包含 360/阿里等公共大表)
 [[rulesets]]
 group = "DIRECT"
 ruleset = "rules/China.list"
