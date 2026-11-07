@@ -84,3 +84,8 @@ DOMAIN-KEYWORD,qoder
 DOMAIN-REGEX,^(.*\.)?et-[a-zA-Z0-9-]*\.com$
 DOMAIN-REGEX,^(.*\.)?i?byted?[a-zA-Z0-9-]*\.[a-z]{2,}$
 
+DOMAIN-SUFFIX,aliyun.com
+DOMAIN-SUFFIX,hortorgames.com
+DOMAIN-KEYWORD,mimo
+DOMAIN-SUFFIX,upload.qiniup.com
+

@@ -1,15 +1,15 @@
 # Subconverter 分流规则链顺序配置
 # 启动时一次性编译加载进内存，接收到 /refresh 时重新拉取编译，日常订阅请求 0 延迟只读下发。
 
-# 1. 您的私人直连规则 (最高优先级！用于修正误杀)
-[[rulesets]]
-group = "DIRECT"
-ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list"
-
-# 2. 您的私人代理规则 (最高优先级！)
+# 1. 您的私人代理规则 (最高优先级！确保私人指定走代理的绝对不被直连截胡)
 [[rulesets]]
 group = "🚀 节点选择"
 ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/Global.list"
+
+# 2. 您的私人直连规则 (最高优先级！修正被误杀的国内直连网站)
+[[rulesets]]
+group = "DIRECT"
+ruleset = "https://raw.githubusercontent.com/YooRarely/subconverter_config/refs/heads/main/rules/China.list"
 
 # 3. 拦截广告规则 (不变公共规则)
 [[rulesets]]

@@ -198,18 +198,34 @@ impl RulesBuilder {
     }
 
     async fn fetch_and_cache(remote_url: &str) -> bool {
-        info!("正在从远程 GitHub 拉取私人规则: {}", remote_url);
+        // 破除 GitHub Fastly CDN 的 300 秒 (5分钟) 强行缓存延迟：附带时间戳并禁用缓存回源
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let bust_url = if remote_url.contains('?') {
+            format!("{}&_t={}", remote_url, timestamp)
+        } else {
+            format!("{}?_t={}", remote_url, timestamp)
+        };
+
+        info!("正在从远程 GitHub 拉取私人规则 (实时回源防缓存): {}", bust_url);
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
 
-        match client.get(remote_url).send().await {
+        let req = client
+            .get(&bust_url)
+            .header(reqwest::header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+            .header(reqwest::header::PRAGMA, "no-cache");
+
+        match req.send().await {
             Ok(resp) if resp.status().is_success() => {
                 if let Ok(text) = resp.text().await {
                     let mut cache = REMOTE_CACHE.write().await;
                     cache.insert(remote_url.to_string(), text);
-                    info!("✅ 成功同步并缓存远程规则: {}", remote_url);
+                    info!("✅ 成功同步并缓存远程规则 (实时生效): {}", remote_url);
                     return true;
                 }
             }
